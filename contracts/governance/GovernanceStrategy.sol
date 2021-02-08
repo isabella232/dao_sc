@@ -3,7 +3,7 @@ pragma solidity 0.7.5;
 pragma abicoder v2;
 
 import {IGovernanceStrategy} from '../interfaces/IGovernanceStrategy.sol';
-import {IERC20} from "../interfaces/IERC20.sol";
+import {IERC20} from '../interfaces/IERC20.sol';
 import {IGovernancePowerDelegationToken} from '../interfaces/IGovernancePowerDelegationToken.sol';
 
 /**
@@ -39,16 +39,21 @@ contract GovernanceStrategy is IGovernanceStrategy {
    * @param blockNumber Blocknumber at which to evaluate
    * @return total supply at blockNumber
    **/
-  function getTotalPropositionSupplyAt(uint256 blockNumber) public view override returns (uint256) {
+  function getTotalPropositionSupplyAt(uint256 blockNumber)
+    public
+    override
+    view
+    returns (uint256)
+  {
     return IERC20(AAVE).totalSupplyAt(blockNumber);
   }
 
   /**
-   * @dev Returns the total supply of Outstanding Voting Tokens 
+   * @dev Returns the total supply of Outstanding Voting Tokens
    * @param blockNumber Blocknumber at which to evaluate
    * @return total supply at blockNumber
    **/
-  function getTotalVotingSupplyAt(uint256 blockNumber) public view override returns (uint256) {
+  function getTotalVotingSupplyAt(uint256 blockNumber) public override view returns (uint256) {
     return getTotalPropositionSupplyAt(blockNumber);
   }
 
@@ -60,12 +65,16 @@ contract GovernanceStrategy is IGovernanceStrategy {
    **/
   function getPropositionPowerAt(address user, uint256 blockNumber)
     public
-    view
     override
+    view
     returns (uint256)
   {
     return
-      _getPowerByTypeAt(user, blockNumber, IGovernancePowerDelegationToken.DelegationType.PROPOSITION_POWER);
+      _getPowerByTypeAt(
+        user,
+        blockNumber,
+        IGovernancePowerDelegationToken.DelegationType.PROPOSITION_POWER
+      );
   }
 
   /**
@@ -76,11 +85,16 @@ contract GovernanceStrategy is IGovernanceStrategy {
    **/
   function getVotingPowerAt(address user, uint256 blockNumber)
     public
-    view
     override
+    view
     returns (uint256)
   {
-    return _getPowerByTypeAt(user, blockNumber, IGovernancePowerDelegationToken.DelegationType.VOTING_POWER);
+    return
+      _getPowerByTypeAt(
+        user,
+        blockNumber,
+        IGovernancePowerDelegationToken.DelegationType.VOTING_POWER
+      );
   }
 
   function _getPowerByTypeAt(

@@ -5,7 +5,6 @@ pragma abicoder v2;
 import {IAaveGovernanceV2} from './IAaveGovernanceV2.sol';
 
 interface IProposalValidator {
-
   /**
    * @dev Called to validate a proposal (e.g when creating new proposal in Governance)
    * @param governance Governance Contract
