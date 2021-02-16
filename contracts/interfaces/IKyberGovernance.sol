@@ -2,85 +2,118 @@
 pragma solidity 0.7.5;
 pragma abicoder v2;
 
-import {IExecutorWithTimelock} from './IExecutorWithTimelock.sol';
+import {IExecutorWithTimelock} from "./IExecutorWithTimelock.sol";
+import {IVotingPowerStrategy} from "./IVotingPowerStrategy.sol";
 
-interface IAaveGovernanceV2 {
+
+interface IKyberGovernance {
   enum ProposalState {Pending, Canceled, Active, Failed, Succeeded, Queued, Expired, Executed}
+  enum ProposalType {Binary, Generic}
 
   struct Vote {
-    bool support;
-    uint248 votingPower;
+    uint32 optionBitMask;
+    uint224 votingPower;
   }
 
   struct Proposal {
     uint256 id;
+    ProposalType proposalType;
     address creator;
     IExecutorWithTimelock executor;
+    IVotingPowerStrategy strategy;
     address[] targets;
     uint256[] values;
     string[] signatures;
     bytes[] calldatas;
     bool[] withDelegatecalls;
-    uint256 startBlock;
-    uint256 endBlock;
-    uint256 executionTime;
-    uint256 forVotes;
-    uint256 againstVotes;
+    string[] options;
+    uint256[] voteCounts;
+    uint256 totalVotes;
+    uint256 maxVotingPower;
+    uint256 startTimestamp;
+    uint256 endTimestamp;
+    uint256 executionTimestamp;
+    string link;
     bool executed;
     bool canceled;
-    address strategy;
-    bytes32 ipfsHash;
     mapping(address => Vote) votes;
   }
 
-  struct ProposalWithoutVotes {
+  struct ProposalWithoutVote {
     uint256 id;
+    ProposalType proposalType;
     address creator;
     IExecutorWithTimelock executor;
+    IVotingPowerStrategy strategy;
     address[] targets;
     uint256[] values;
     string[] signatures;
     bytes[] calldatas;
     bool[] withDelegatecalls;
-    uint256 startBlock;
-    uint256 endBlock;
-    uint256 executionTime;
-    uint256 forVotes;
-    uint256 againstVotes;
+    string[] options;
+    uint256[] voteCounts;
+    uint256 totalVotes;
+    uint256 maxVotingPower;
+    uint256 startTimestamp;
+    uint256 endTimestamp;
+    uint256 executionTimestamp;
+    string link;
     bool executed;
     bool canceled;
-    address strategy;
-    bytes32 ipfsHash;
   }
 
+  function handleVotingPowerChanged(address staker, uint256 newVotingPower) external;
+
   /**
-   * @dev emitted when a new proposal is created
-   * @param id Id of the proposal
+   * @dev emitted when a new binary proposal is created
+   * @param id Id of the binary proposal
    * @param creator address of the creator
-   * @param executor The ExecutorWithTimelock contract that will execute the proposal
+   * @param executor ExecutorWithTimelock contract that will execute the proposal
+   * @param strategy votingPowerStrategy contract to calculate voting power
    * @param targets list of contracts called by proposal's associated transactions
    * @param values list of value in wei for each propoposal's associated transaction
    * @param signatures list of function signatures (can be empty) to be used when created the callData
    * @param calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
    * @param withDelegatecalls boolean, true = transaction delegatecalls the taget, else calls the target
-   * @param startBlock block number when vote starts
-   * @param endBlock block number when vote ends
-   * @param strategy address of the governanceStrategy contract
-   * @param ipfsHash IPFS hash of the proposal
+   * @param startTimestamp timestamp when vote starts
+   * @param endTimestamp timestamp when vote ends
+   * @param link URL link of the proposal
    **/
-  event ProposalCreated(
+  event BinaryProposalCreated(
     uint256 id,
     address indexed creator,
     IExecutorWithTimelock indexed executor,
+    IVotingPowerStrategy indexed strategy,
     address[] targets,
     uint256[] values,
     string[] signatures,
     bytes[] calldatas,
     bool[] withDelegatecalls,
-    uint256 startBlock,
-    uint256 endBlock,
-    address strategy,
-    bytes32 ipfsHash
+    uint256 startTimestamp,
+    uint256 endTimestamp,
+    string link
+  );
+
+  /**
+   * @dev emitted when a new generic proposal is created
+   * @param id Id of the generic proposal
+   * @param creator address of the creator
+   * @param executor ExecutorWithTimelock contract that will execute the proposal
+   * @param strategy votingPowerStrategy contract to calculate voting power
+   * @param options list of proposal vote options
+   * @param startTimestamp timestamp when vote starts
+   * @param endTimestamp timestamp when vote ends
+   * @param link URL link of the proposal
+   **/
+  event GenericProposalCreated(
+    uint256 id,
+    address indexed creator,
+    IExecutorWithTimelock indexed executor,
+    IVotingPowerStrategy indexed strategy,
+    string[] options,
+    uint256 startTimestamp,
+    uint256 endTimestamp,
+    string link
   );
 
   /**
@@ -106,10 +139,10 @@ interface IAaveGovernanceV2 {
    * @dev emitted when a vote is registered
    * @param id Id of the proposal
    * @param voter address of the voter
-   * @param support boolean, true = vote for, false = vote against
+   * @param voteOptions vote options selected by voter
    * @param votingPower Power of the voter/vote
    **/
-  event VoteEmitted(uint256 id, address indexed voter, bool support, uint256 votingPower);
+  event VoteEmitted(uint256 id, address indexed voter, uint32 voteOptions, uint224 votingPower);
 
   event GovernanceStrategyChanged(address indexed newStrategy, address indexed initiatorChange);
 
@@ -120,24 +153,49 @@ interface IAaveGovernanceV2 {
   event ExecutorUnauthorized(address executor);
 
   /**
-   * @dev Creates a Proposal (needs Proposition Power of creator > Threshold)
-   * @param executor The ExecutorWithTimelock contract that will execute the proposal
+   * @dev Creates a Binary Proposal
+   * @param executor ExecutorWithTimelock contract that will execute the proposal
+   * @param strategy votingPowerStrategy contract to calculate voting power
    * @param targets list of contracts called by proposal's associated transactions
    * @param values list of value in wei for each propoposal's associated transaction
    * @param signatures list of function signatures (can be empty) to be used when created the callData
    * @param calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
    * @param withDelegatecalls if true, transaction delegatecalls the taget, else calls the target
-   * @param ipfsHash IPFS hash of the proposal
+   * @param startTimestamp timestamp when vote starts
+   * @param endTimestamp timestamp when vote ends
+   * @param link URL link of the proposal
    **/
-  function create(
+  function createBinaryProposal(
     IExecutorWithTimelock executor,
+    IVotingPowerStrategy strategy,
     address[] memory targets,
     uint256[] memory values,
     string[] memory signatures,
     bytes[] memory calldatas,
     bool[] memory withDelegatecalls,
-    bytes32 ipfsHash
+    uint256 startTimestamp,
+    uint256 endTimestamp,
+    string link
   ) external returns (uint256);
+
+  /**
+   * @dev Creates a Generic Proposal
+   * @param executor ExecutorWithTimelock contract that will execute the proposal
+   * @param strategy votingPowerStrategy contract to calculate voting power
+   * @param options list of proposal vote options
+   * @param startTimestamp timestamp when vote starts
+   * @param endTimestamp timestamp when vote ends
+   * @param link URL link of the proposal
+   **/
+  function createGenericProposal(
+    IExecutorWithTimelock executor,
+    IVotingPowerStrategy strategy,
+    string[] memory options,
+    uint256 startTimestamp,
+    uint256 endTimestamp,
+    string link
+  ) external returns (uint256);
+
 
   /**
    * @dev Cancels a Proposal,
@@ -162,32 +220,9 @@ interface IAaveGovernanceV2 {
   /**
    * @dev Function allowing msg.sender to vote for/against a proposal
    * @param proposalId id of the proposal
-   * @param support boolean, true = vote for, false = vote against
+   * @param optionBitMask vote option(s) selected
    **/
-  function submitVote(uint256 proposalId, bool support) external;
-
-  /**
-   * @dev Function to register the vote of user that has voted offchain via signature
-   * @param proposalId id of the proposal
-   * @param support boolean, true = vote for, false = vote against
-   * @param v v part of the voter signature
-   * @param r r part of the voter signature
-   * @param s s part of the voter signature
-   **/
-  function submitVoteBySignature(
-    uint256 proposalId,
-    bool support,
-    uint8 v,
-    bytes32 r,
-    bytes32 s
-  ) external;
-
-  /**
-   * @dev Set new GovernanceStrategy
-   * Note: owner should be a timelocked executor, so needs to make a proposal
-   * @param governanceStrategy new Address of the GovernanceStrategy contract
-   **/
-  function setGovernanceStrategy(address governanceStrategy) external;
+  function submitVote(uint256 proposalId, uint256 optionBitMask) external;
 
   /**
    * @dev Set new Voting Delay (delay before a newly created proposal can be voted on)
@@ -212,12 +247,6 @@ interface IAaveGovernanceV2 {
    * @dev Let the guardian abdicate from its priviledged rights
    **/
   function __abdicate() external;
-
-  /**
-   * @dev Getter of the current GovernanceStrategy address
-   * @return The address of the current GovernanceStrategy contracts
-   **/
-  function getGovernanceStrategy() external view returns (address);
 
   /**
    * @dev Getter of the current Voting Delay (delay before a created proposal can be voted on)
@@ -254,7 +283,7 @@ interface IAaveGovernanceV2 {
 
   /**
    * @dev Getter of the Vote of a voter about a proposal
-   * Note: Vote is a struct: ({bool support, uint248 votingPower})
+   * Note: Vote is a struct: ({uint256 bitOptionMask, uint256 votingPower})
    * @param proposalId id of the proposal
    * @param voter address of the voter
    * @return The associated Vote memory object
