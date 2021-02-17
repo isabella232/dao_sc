@@ -634,12 +634,7 @@
   resolved "https://registry.yarnpkg.com/@solidity-parser/parser/-/parser-0.11.1.tgz#fa840af64840c930f24a9c82c08d4a092a068add"
   integrity sha512-H8BSBoKE8EubJa0ONqecA2TviT3TnHeC4NpgnAHSUiuhZoQBfPB4L2P9bs8R6AoTW10Endvh3vc+fomVMIDIYQ==
 
-"@solidity-parser/parser@^0.6.0":
-  version "0.6.2"
-  resolved "https://registry.yarnpkg.com/@solidity-parser/parser/-/parser-0.6.2.tgz#49707fc4e06649d39d6b25bdab2e9093d372ce50"
-  integrity sha512-kUVUvrqttndeprLoXjI5arWHeiP3uh4XODAKbG+ZaWHCVQeelxCbnXBeWxZ2BPHdXgH0xR9dU1b916JhDhbgAA==
-
-"@solidity-parser/parser@^0.8.0", "@solidity-parser/parser@^0.8.1":
+"@solidity-parser/parser@^0.8.0", "@solidity-parser/parser@^0.8.1", "@solidity-parser/parser@^0.8.2":
   version "0.8.2"
   resolved "https://registry.yarnpkg.com/@solidity-parser/parser/-/parser-0.8.2.tgz#a6a5e93ac8dca6884a99a532f133beba59b87b69"
   integrity sha512-8LySx3qrNXPgB5JiULfG10O3V7QTxI/TLzSw5hFQhXWSkVxZBAv4rZQ0sYgLEbc8g3L2lmnujj1hKul38Eu5NQ==
@@ -5863,12 +5858,12 @@ solc@0.7.5:
     semver "^5.5.0"
     tmp "0.0.33"
 
-solhint@3.0.0-rc.8:
-  version "3.0.0-rc.8"
-  resolved "https://registry.yarnpkg.com/solhint/-/solhint-3.0.0-rc.8.tgz#6ea10cca261677fb37c59a100abbfa6df424cfe0"
-  integrity sha512-FTS8Trg/C48ke+zIxAzbaFfCDzkVcwXHBNzCEKpe0S6GcCIfJs3p31tedcdRgkEWXRWs25pd1cFzBn6PNuUrZA==
+solhint@3.3.2:
+  version "3.3.2"
+  resolved "https://registry.yarnpkg.com/solhint/-/solhint-3.3.2.tgz#ebd7270bb50fd378b427d7a6fc9f2a7fd00216c0"
+  integrity sha512-8tHCkIAk1axLLG6Qu2WIH3GgNABonj9eAWejJbov3o3ujkZQRNHeHU1cC4/Dmjsh3Om7UzFFeADUHu2i7ZJeiw==
   dependencies:
-    "@solidity-parser/parser" "^0.6.0"
+    "@solidity-parser/parser" "^0.8.2"
     ajv "^6.6.1"
     antlr4 "4.7.1"
     ast-parents "0.0.1"

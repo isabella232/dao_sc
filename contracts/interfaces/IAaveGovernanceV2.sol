@@ -259,7 +259,10 @@ interface IAaveGovernanceV2 {
    * @param voter address of the voter
    * @return The associated Vote memory object
    **/
-  function getVoteOnProposal(uint256 proposalId, address voter) external view returns (Vote memory);
+  function getVoteOnProposal(uint256 proposalId, address voter)
+    external
+    view
+    returns (Vote memory);
 
   /**
    * @dev Get the current state of a proposal

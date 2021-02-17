@@ -38,7 +38,9 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
   bytes32 public constant DOMAIN_TYPEHASH = keccak256(
     'EIP712Domain(string name,uint256 chainId,address verifyingContract)'
   );
-  bytes32 public constant VOTE_EMITTED_TYPEHASH = keccak256('VoteEmitted(uint256 id,bool support)');
+  bytes32 public constant VOTE_EMITTED_TYPEHASH = keccak256(
+    'VoteEmitted(uint256 id,bool support)'
+  );
   string public constant NAME = 'Aave Governance v2';
 
   modifier onlyGuardian() {
@@ -212,7 +214,7 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
    * @dev Execute the proposal (If Proposal Queued)
    * @param proposalId id of the proposal to execute
    **/
-  function execute(uint256 proposalId) external payable override {
+  function execute(uint256 proposalId) external override payable {
     require(getProposalState(proposalId) == ProposalState.Queued, 'ONLY_QUEUED_PROPOSALS');
     Proposal storage proposal = _proposals[proposalId];
     proposal.executed = true;
@@ -256,7 +258,9 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
     bytes32 digest = keccak256(
       abi.encodePacked(
         '\x19\x01',
-        keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(NAME)), getChainId(), address(this))),
+        keccak256(
+          abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(NAME)), getChainId(), address(this))
+        ),
         keccak256(abi.encode(VOTE_EMITTED_TYPEHASH, proposalId, support))
       )
     );
@@ -314,7 +318,7 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
    * @dev Getter of the current GovernanceStrategy address
    * @return The address of the current GovernanceStrategy contracts
    **/
-  function getGovernanceStrategy() external view override returns (address) {
+  function getGovernanceStrategy() external override view returns (address) {
     return _governanceStrategy;
   }
 
@@ -323,7 +327,7 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
    * Different from the voting duration
    * @return The voting delay in number of blocks
    **/
-  function getVotingDelay() external view override returns (uint256) {
+  function getVotingDelay() external override view returns (uint256) {
     return _votingDelay;
   }
 
@@ -332,7 +336,7 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
    * @param executor address to evaluate as authorized executor
    * @return true if authorized
    **/
-  function isExecutorAuthorized(address executor) public view override returns (bool) {
+  function isExecutorAuthorized(address executor) public override view returns (bool) {
     return _authorizedExecutors[executor];
   }
 
@@ -340,7 +344,7 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
    * @dev Getter the address of the guardian, that can mainly cancel proposals
    * @return The address of the guardian
    **/
-  function getGuardian() external view override returns (address) {
+  function getGuardian() external override view returns (address) {
     return _guardian;
   }
 
@@ -348,7 +352,7 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
    * @dev Getter of the proposal count (the current number of proposals ever created)
    * @return the proposal count
    **/
-  function getProposalsCount() external view override returns (uint256) {
+  function getProposalsCount() external override view returns (uint256) {
     return _proposalsCount;
   }
 
@@ -359,8 +363,8 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
    **/
   function getProposalById(uint256 proposalId)
     external
-    view
     override
+    view
     returns (ProposalWithoutVotes memory)
   {
     Proposal storage proposal = _proposals[proposalId];
@@ -396,8 +400,8 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
    **/
   function getVoteOnProposal(uint256 proposalId, address voter)
     external
-    view
     override
+    view
     returns (Vote memory)
   {
     return _proposals[proposalId].votes[voter];
@@ -408,7 +412,7 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
    * @param proposalId id of the proposal
    * @return The current state if the proposal
    **/
-  function getProposalState(uint256 proposalId) public view override returns (ProposalState) {
+  function getProposalState(uint256 proposalId) public override view returns (ProposalState) {
     require(_proposalsCount >= proposalId, 'INVALID_PROPOSAL_ID');
     Proposal storage proposal = _proposals[proposalId];
     if (proposal.canceled) {
@@ -417,7 +421,9 @@ contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
       return ProposalState.Pending;
     } else if (block.number <= proposal.endBlock) {
       return ProposalState.Active;
-    } else if (!IProposalValidator(address(proposal.executor)).isProposalPassed(this, proposalId)) {
+    } else if (
+      !IProposalValidator(address(proposal.executor)).isProposalPassed(this, proposalId)
+    ) {
       return ProposalState.Failed;
     } else if (proposal.executionTime == 0) {
       return ProposalState.Succeeded;
