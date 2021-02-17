@@ -302,4 +302,13 @@ interface IKyberGovernance {
    * @return The current state if the proposal
    **/
   function getProposalState(uint256 proposalId) external view returns (ProposalState);
+
+  /**
+   * @dev Returns index of the winning option of the proposal
+   *  return 0 if proposal has no winning option (for generic proposals), or not yet finalised
+   *  if proposal is binary, it will return 1 if proposal is passed
+   * @param proposalId id of the proposal
+   * @return winning option index
+   **/
+  function getProposalWinningOption(uint256 proposalId) external view returns (uint256);
 }

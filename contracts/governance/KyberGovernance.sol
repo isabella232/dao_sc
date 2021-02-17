@@ -106,7 +106,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
         endTime,
         _daoOperator
       ),
-      'PROPOSITION_CREATION_INVALID'
+      'VALIDATE_PROPOSAL_CREATION_INVALID'
     );
 
     Proposal storage newProposal = _proposals[proposalId];
@@ -186,7 +186,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
         options,
         _daoOperator
       ),
-      'PROPOSITION_CREATION_INVALID'
+      'VALIDATE_PROPOSAL_CREATION_INVALID'
     );
     Proposal storage newProposal = _proposals[proposalId];
     ProposalWithoutVote storage newProposalData = newProposal.proposalData;
@@ -241,7 +241,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
           proposalId,
           proposal.creator
         ),
-      'PROPOSITION_CANCELLATION_INVALID'
+      'VALIDATE_PROPOSAL_CANCELLATION_FAILED'
     );
     proposal.canceled = true;
     if (proposal.proposalType == ProposalType.Binary) {
@@ -263,7 +263,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   }
 
   /**
-   * @dev Queue the proposal (If Proposal Succeeded)
+   * @dev Queue the proposal (If Proposal Succeeded), only for Binary proposals
    * @param proposalId id of the proposal to queue
    **/
   function queue(uint256 proposalId) external override {
@@ -288,7 +288,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   }
 
   /**
-   * @dev Execute the proposal (If Proposal Queued)
+   * @dev Execute the proposal (If Proposal Queued), only for Binary proposals
    * @param proposalId id of the proposal to execute
    **/
   function execute(uint256 proposalId) external payable override {
@@ -313,6 +313,8 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @dev Function allowing msg.sender to vote for/against a proposal
    * @param proposalId id of the proposal
    * @param choice bitmask choice of voter
+   *  for Binary Proposal, choice should be either 1 or 2 (Accept/Reject)
+   *  for Generic Proposal, choice is the bitmask of voted options
    **/
   function submitVote(uint256 proposalId, uint256 choice) external override {
     return _submitVote(msg.sender, proposalId, choice);
@@ -366,9 +368,10 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
         Vote memory vote = proposal.votes[staker];
         if (vote.choice == 0) continue; // not voted yet
         uint256 oldVotingPower = uint256(vote.votingPower);
+        proposal.totalVotes = proposal.totalVotes + newVotingPower - oldVotingPower;
         // update vote count for each voted option
         for(uint256 j = 0; j < proposal.options.length; j++) {
-          if (vote.choice && (2 ** j) == (2 ** j)) {
+          if (vote.choice & (2 ** j) == (2 ** j)) {
             // expect proposal.voteCounts[i] >= oldVotingPower
             proposal.voteCounts[j] = proposal.voteCounts[j] + newVotingPower - oldVotingPower;
           }
@@ -513,6 +516,19 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     }
   }
 
+  function getProposalWinningOption(uint256 proposalId) external view returns (uint256) {
+    ProposalState state = getProposalState(proposalId);
+    if (
+      state == ProposalState.Canceled ||
+      state == ProposalState.Pending ||
+      state == ProposalState.Active
+    ) {
+      return 0;
+    }
+    // TODO: Check if has any winning options
+    return 0;
+  }
+
   function _queueOrRevert(
     IExecutorWithTimelock executor,
     address target,
@@ -555,8 +571,8 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       proposal.totalVotes += votingPower;
     }
     for(uint256 i = 0; i < proposal.options.length; i++) {
-      bool isVoted = vote.optionBitMask & 2**i == 2**i;
-      bool isVoting = choice && 2**i == 2**i;
+      bool isVoted = (vote.optionBitMask & 2**i) == 2**i;
+      bool isVoting = (choice & 2**i) == 2**i;
       if (isVoted && !isVoting) {
         proposal.voteCounts[i] -= votingPower;
       } else if (!isVoted && isVoting){
