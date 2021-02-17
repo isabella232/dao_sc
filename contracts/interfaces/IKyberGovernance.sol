@@ -2,8 +2,8 @@
 pragma solidity 0.7.5;
 pragma abicoder v2;
 
-import {IExecutorWithTimelock} from "./IExecutorWithTimelock.sol";
-import {IVotingPowerStrategy} from "./IVotingPowerStrategy.sol";
+import {IExecutorWithTimelock} from './IExecutorWithTimelock.sol';
+import {IVotingPowerStrategy} from './IVotingPowerStrategy.sol';
 
 
 interface IKyberGovernance {
@@ -39,7 +39,7 @@ interface IKyberGovernance {
     mapping(address => Vote) votes;
   }
 
-  struct ProposalWithoutVote {
+  struct ProposalWithoutVotes {
     uint256 id;
     ProposalType proposalType;
     address creator;

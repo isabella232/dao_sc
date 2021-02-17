@@ -4,7 +4,7 @@ pragma abicoder v2;
 
 import {IExecutorWithTimelock} from '../interfaces/IExecutorWithTimelock.sol';
 import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
-import {SafeMath} from '../dependencies/open-zeppelin/SafeMath.sol';
+import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 
 /**
  * @title Time Locked Executor Contract, inherited by Aave Governance Executors

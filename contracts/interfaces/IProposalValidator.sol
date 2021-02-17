@@ -3,6 +3,8 @@ pragma solidity 0.7.5;
 pragma abicoder v2;
 
 import {IKyberGovernance} from './IKyberGovernance.sol';
+import {IVotingPowerStrategy} from './IVotingPowerStrategy.sol';
+
 
 interface IProposalValidator {
   /**

@@ -2,13 +2,13 @@
 pragma solidity 0.7.5;
 pragma abicoder v2;
 
-import {IVotingStrategy} from '../interfaces/IVotingStrategy.sol';
+import {IVotingPowerStrategy} from '../interfaces/IVotingPowerStrategy.sol';
 import {IExecutorWithTimelock} from '../interfaces/IExecutorWithTimelock.sol';
 import {IProposalValidator} from '../interfaces/IProposalValidator.sol';
 import {IGovernanceStrategy} from '../interfaces/IGovernanceStrategy.sol';
 import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
-import {Ownable} from '../dependencies/open-zeppelin/Ownable.sol';
-import {SafeMath} from '../dependencies/open-zeppelin/SafeMath.sol';
+import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
+import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {isContract, getChainId} from '../misc/Helpers.sol';
 
 /**
@@ -465,7 +465,7 @@ contract KyberGovernance is Ownable, IKyberGovernance {
 
     require(vote.votingPower == 0, 'VOTE_ALREADY_SUBMITTED');
 
-    uint256 votingPower = IVotingStrategy(proposal.strategy).getVotingPowerAt(
+    uint256 votingPower = IVotingPowerStrategy(proposal.strategy).getVotingPowerAt(
       voter,
       proposal.startBlock
     );
