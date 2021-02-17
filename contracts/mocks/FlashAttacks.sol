@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.7.5;
+pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
-import {IERC20} from './interfaces/IERC20.sol';
+import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {IExecutorWithTimelock} from '../interfaces/IExecutorWithTimelock.sol';
 
 contract FlashAttacks {
-  IERC20 internal immutable TOKEN;
+  IERC20Ext internal immutable TOKEN;
   address internal immutable MINTER;
   IKyberGovernance internal immutable GOV;
 
@@ -16,7 +16,7 @@ contract FlashAttacks {
     address _MINTER,
     address _governance
   ) {
-    TOKEN = IERC20(_token);
+    TOKEN = IERC20Ext(_token);
     MINTER = _MINTER;
     GOV = IKyberGovernance(_governance);
   }
