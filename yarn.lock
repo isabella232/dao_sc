@@ -398,12 +398,10 @@
     "@ethersproject/properties" "^5.0.7"
     "@ethersproject/strings" "^5.0.8"
 
-"@kyber.network/utils-sc@2.1.3":
-  version "2.1.3"
-  resolved "https://registry.yarnpkg.com/@kyber.network/utils-sc/-/utils-sc-2.1.3.tgz#c9a288f8a63f906d8227683343da81226020fdd0"
-  integrity sha512-3zZyVsTY90/ZcDjCceWNCnel0WLNrRIjL+3B55ukRAtrJ0pI7Jtl3eNx0iyHBiyaFzCQqvGH1GS/+744ICBgPA==
-  dependencies:
-    "@openzeppelin/contracts" "3.2.0"
+"@kyber.network/utils-sc@2.2.1":
+  version "2.2.1"
+  resolved "https://registry.yarnpkg.com/@kyber.network/utils-sc/-/utils-sc-2.2.1.tgz#1864b473608a7c48aa9382ba01eea8f4cd1092bc"
+  integrity sha512-cv4NPf+L95rsRbFvbDDpwTd7lFWb6lhUR47xQdOMv/0ZmHDm5Jrn1kXh0WfugY5VwMVEMdPvSnSPWpCra3xTLw==
 
 "@nodelib/fs.scandir@2.1.4":
   version "2.1.4"
@@ -494,12 +492,7 @@
     fs-extra "^8.1.0"
     try-require "^1.2.1"
 
-"@openzeppelin/contracts@3.2.0":
-  version "3.2.0"
-  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-3.2.0.tgz#3e6b3a7662d8ed64271ade96ef42655db983fd9d"
-  integrity sha512-bUOmkSoPkjnUyMiKo6RYnb0VHBk5D9KKDAgNLzF41aqAM3TeE0yGdFF5dVRcV60pZdJLlyFT/jjXIZCWyyEzAQ==
-
-"@openzeppelin/contracts@^3.4.0-solc-0.7":
+"@openzeppelin/contracts@3.4.0-solc-0.7":
   version "3.4.0-solc-0.7"
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-3.4.0-solc-0.7.tgz#c4fbd1b761714745c4bce6fc97e8b44d4c29d5b9"
   integrity sha512-bJz1YgmeKRYVnYZedYSiy5/YmaYTxOhb76ftCseN1z2r4DK7PwCGvRCF2fRavTxAmGkIC/Q5zSy/Dr3OerPw0w==
@@ -1599,8 +1592,8 @@ ci-info@^2.0.0:
   integrity sha512-5tK7EtrZ0N+OLFMthtqOj4fI2Jeb88C4CAZPu25LDVUgXJ0A3Js4PMGqrn0JU1W0Mh1/Z8wZzYPxqUrXeBboCQ==
 
 cids@^0.7.1:
-  version "0.7.5"
-  resolved "https://registry.yarnpkg.com/cids/-/cids-0.7.5.tgz#60a08138a99bfb69b6be4ceb63bfef7a396b28b2"
+  version "0.7.6"
+  resolved "https://registry.yarnpkg.com/cids/-/cids-0.7.6.tgz#60a08138a99bfb69b6be4ceb63bfef7a396b28b2"
   integrity sha512-zT7mPeghoWAu+ppn8+BS1tQ5qGmbMfB4AregnQjA/qHY3GC1m1ptI9GkWNlgeu38r7CuRdXB47uY2XgAYt6QVA==
   dependencies:
     buffer "^5.5.0"
@@ -5834,9 +5827,9 @@ solc@0.7.3:
     semver "^5.5.0"
     tmp "0.0.33"
 
-solc@0.7.5:
-  version "0.7.5"
-  resolved "https://registry.yarnpkg.com/solc/-/solc-0.7.5.tgz#8dad9536075a113adcbcb2ace80d486b389f273c"
+solc@0.7.6:
+  version "0.7.6"
+  resolved "https://registry.yarnpkg.com/solc/-/solc-0.7.6.tgz#8dad9536075a113adcbcb2ace80d486b389f273c"
   integrity sha512-RdcYGj2qjg+maWYRZPW65QvOOYbwexDT9xaOEQJtRI0TIYfzTJmslJ4f9S56VNjJsIR1zHdUIiPyuhF7wGIylw==
   dependencies:
     command-exists "^1.2.8"
