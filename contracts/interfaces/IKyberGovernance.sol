@@ -5,17 +5,17 @@ pragma abicoder v2;
 import {IExecutorWithTimelock} from './IExecutorWithTimelock.sol';
 import {IVotingPowerStrategy} from './IVotingPowerStrategy.sol';
 
-
 interface IKyberGovernance {
-  enum ProposalState {Pending, Canceled, Active, Failed, Succeeded, Queued, Expired, Executed}
-  enum ProposalType {Binary, Generic}
+
+  enum ProposalState { Pending, Canceled, Active, Failed, Succeeded, Queued, Expired, Executed }
+  enum ProposalType { Generic, Binary }
 
   struct Vote {
     uint32 optionBitMask;
     uint224 votingPower;
   }
 
-  struct Proposal {
+  struct ProposalWithoutVote {
     uint256 id;
     ProposalType proposalType;
     address creator;
@@ -30,36 +30,17 @@ interface IKyberGovernance {
     uint256[] voteCounts;
     uint256 totalVotes;
     uint256 maxVotingPower;
-    uint256 startTimestamp;
-    uint256 endTimestamp;
-    uint256 executionTimestamp;
+    uint256 startTime;
+    uint256 endTime;
+    uint256 executionTime;
     string link;
     bool executed;
     bool canceled;
-    mapping(address => Vote) votes;
   }
 
-  struct ProposalWithoutVotes {
-    uint256 id;
-    ProposalType proposalType;
-    address creator;
-    IExecutorWithTimelock executor;
-    IVotingPowerStrategy strategy;
-    address[] targets;
-    uint256[] values;
-    string[] signatures;
-    bytes[] calldatas;
-    bool[] withDelegatecalls;
-    string[] options;
-    uint256[] voteCounts;
-    uint256 totalVotes;
-    uint256 maxVotingPower;
-    uint256 startTimestamp;
-    uint256 endTimestamp;
-    uint256 executionTimestamp;
-    string link;
-    bool executed;
-    bool canceled;
+  struct Proposal {
+    ProposalWithoutVote proposalData;
+    mapping(address => Vote) votes;
   }
 
   function handleVotingPowerChanged(
@@ -79,8 +60,8 @@ interface IKyberGovernance {
    * @param signatures list of function signatures (can be empty) to be used when created the callData
    * @param calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
    * @param withDelegatecalls boolean, true = transaction delegatecalls the taget, else calls the target
-   * @param startTimestamp timestamp when vote starts
-   * @param endTimestamp timestamp when vote ends
+   * @param startTime timestamp when vote starts
+   * @param endTime timestamp when vote ends
    * @param link URL link of the proposal
    **/
   event BinaryProposalCreated(
@@ -93,8 +74,8 @@ interface IKyberGovernance {
     string[] signatures,
     bytes[] calldatas,
     bool[] withDelegatecalls,
-    uint256 startTimestamp,
-    uint256 endTimestamp,
+    uint256 startTime,
+    uint256 endTime,
     string link
   );
 
@@ -105,8 +86,8 @@ interface IKyberGovernance {
    * @param executor ExecutorWithTimelock contract that will execute the proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param options list of proposal vote options
-   * @param startTimestamp timestamp when vote starts
-   * @param endTimestamp timestamp when vote ends
+   * @param startTime timestamp when vote starts
+   * @param endTime timestamp when vote ends
    * @param link URL link of the proposal
    **/
   event GenericProposalCreated(
@@ -115,8 +96,8 @@ interface IKyberGovernance {
     IExecutorWithTimelock indexed executor,
     IVotingPowerStrategy indexed strategy,
     string[] options,
-    uint256 startTimestamp,
-    uint256 endTimestamp,
+    uint256 startTime,
+    uint256 endTime,
     string link
   );
 
@@ -165,21 +146,21 @@ interface IKyberGovernance {
    * @param signatures list of function signatures (can be empty) to be used when created the callData
    * @param calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
    * @param withDelegatecalls if true, transaction delegatecalls the taget, else calls the target
-   * @param startTimestamp timestamp when vote starts
-   * @param endTimestamp timestamp when vote ends
+   * @param startTime timestamp when vote starts
+   * @param endTime timestamp when vote ends
    * @param link URL link of the proposal
    **/
   function createBinaryProposal(
     IExecutorWithTimelock executor,
     IVotingPowerStrategy strategy,
-    address[] memory targets,
-    uint256[] memory values,
-    string[] memory signatures,
-    bytes[] memory calldatas,
-    bool[] memory withDelegatecalls,
-    uint256 startTimestamp,
-    uint256 endTimestamp,
-    string link
+    address[] calldata targets,
+    uint256[] calldata values,
+    string[] calldata signatures,
+    bytes[] calldata calldatas,
+    bool[] calldata withDelegatecalls,
+    uint256 startTime,
+    uint256 endTime,
+    string calldata link
   ) external returns (uint256);
 
   /**
@@ -187,17 +168,17 @@ interface IKyberGovernance {
    * @param executor ExecutorWithTimelock contract that will execute the proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param options list of proposal vote options
-   * @param startTimestamp timestamp when vote starts
-   * @param endTimestamp timestamp when vote ends
+   * @param startTime timestamp when vote starts
+   * @param endTime timestamp when vote ends
    * @param link URL link of the proposal
    **/
   function createGenericProposal(
     IExecutorWithTimelock executor,
     IVotingPowerStrategy strategy,
-    string[] memory options,
-    uint256 startTimestamp,
-    uint256 endTimestamp,
-    string link
+    string[] calldata options,
+    uint256 startTime,
+    uint256 endTime,
+    string calldata link
   ) external returns (uint256);
 
 
@@ -229,35 +210,32 @@ interface IKyberGovernance {
   function submitVote(uint256 proposalId, uint256 optionBitMask) external;
 
   /**
-   * @dev Set new Voting Delay (delay before a newly created proposal can be voted on)
-   * Note: owner should be a timelocked executor, so needs to make a proposal
-   * @param votingDelay new voting delay in seconds
+   * @dev Function to register the vote of user that has voted offchain via signature
+   * @param proposalId id of the proposal
+   * @param choice the bit mask of voted options
+   * @param v v part of the voter signature
+   * @param r r part of the voter signature
+   * @param s s part of the voter signature
    **/
-  function setVotingDelay(uint256 votingDelay) external;
+  function submitVoteBySignature(
+    uint256 proposalId,
+    uint256 choice,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+  ) external;
 
   /**
    * @dev Add new addresses to the list of authorized executors
    * @param executors list of new addresses to be authorized executors
    **/
-  function authorizeExecutors(address[] memory executors) external;
+  function authorizeExecutors(address[] calldata executors) external;
 
   /**
    * @dev Remove addresses to the list of authorized executors
    * @param executors list of addresses to be removed as authorized executors
    **/
-  function unauthorizeExecutors(address[] memory executors) external;
-
-  /**
-   * @dev Let the guardian abdicate from its priviledged rights
-   **/
-  function __abdicate() external;
-
-  /**
-   * @dev Getter of the current Voting Delay (delay before a created proposal can be voted on)
-   * Different from the voting duration
-   * @return The voting delay in seconds
-   **/
-  function getVotingDelay() external view returns (uint256);
+  function unauthorizeExecutors(address[] calldata executors) external;
 
   /**
    * @dev Returns whether an address is an authorized executor
@@ -267,10 +245,29 @@ interface IKyberGovernance {
   function isExecutorAuthorized(address executor) external view returns (bool);
 
   /**
+   * @dev Add new addresses to the list of authorized strategies
+   * @param strategies list of new addresses to be authorized strategies
+   **/
+  function authorizeVotingPowerStrategies(address[] calldata strategies) external;
+
+  /**
+   * @dev Remove addresses to the list of authorized strategies
+   * @param strategies list of addresses to be removed as authorized strategies
+   **/
+  function unauthorizeVotingPowerStrategies(address[] calldata strategies) external;
+
+  /**
+   * @dev Returns whether an address is an authorized strategy
+   * @param strategy address to evaluate as authorized strategy
+   * @return true if authorized
+   **/
+  function isVotingPowerStrategyAuthorized(address strategy) external view returns (bool);
+
+  /**
    * @dev Getter the address of the guardian, that can mainly cancel proposals
    * @return The address of the guardian
    **/
-  function getGuardian() external view returns (address);
+  function getDaoOperator() external view returns (address);
 
   /**
    * @dev Getter of the proposal count (the current number of proposals ever created)
@@ -281,9 +278,11 @@ interface IKyberGovernance {
   /**
    * @dev Getter of a proposal by id
    * @param proposalId id of the proposal to get
-   * @return the proposal as ProposalWithoutVotes memory object
+   * @return the proposal as ProposalWithoutVote memory object
    **/
-  function getProposalById(uint256 proposalId) external view returns (ProposalWithoutVotes memory);
+  function getProposalById(
+    uint256 proposalId
+  ) external view returns (ProposalWithoutVote memory);
 
   /**
    * @dev Getter of the Vote of a voter about a proposal

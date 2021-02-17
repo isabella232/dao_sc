@@ -5,8 +5,8 @@ pragma abicoder v2;
 interface IVotingPowerStrategy {
   function handleProposalCreation(
     uint256 proposalID,
-    uint256 startTimestamp,
-    uint256 endTimestamp
+    uint256 startTime,
+    uint256 endTime
   ) external;
 
   function handleProposalCancellation(uint256 proposalID) external;
@@ -32,8 +32,8 @@ interface IVotingPowerStrategy {
   /// pass creator in case we want to validate if creator has enough quorum to create proposal
   function validateProposalCreation(
     address creator,
-    uint256 startTimestamp,
-    uint256 endTimestamp
+    uint256 startTime,
+    uint256 endTime
   ) external view returns (bool);
 
   function getMaxVotingPower() external view returns (uint256);
