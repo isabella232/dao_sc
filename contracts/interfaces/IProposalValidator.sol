@@ -9,7 +9,7 @@ interface IProposalValidator {
    * @dev Called to validate a generic proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param creator address of the creator
-   * @param proposalID Id of the binary proposal
+   * @param proposalId Id of the binary proposal
    * @param startTimestamp timestamp when vote starts
    * @param endTimestamp timestamp when vote ends
    * @param daoOperator address of daoOperator
@@ -18,7 +18,7 @@ interface IProposalValidator {
   function validateBinaryProposalCreation(
     IVotingPowerStrategy strategy,
     address creator,
-    uint256 proposalID,
+    uint256 proposalId,
     uint256 startTimestamp,
     uint256 endTimestamp,
     address daoOperator
@@ -28,7 +28,7 @@ interface IProposalValidator {
    * @dev Called to validate a generic proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param creator address of the creator
-   * @param proposalID Id of the generic proposal
+   * @param proposalId Id of the generic proposal
    * @param startTimestamp timestamp when vote starts
    * @param endTimestamp timestamp when vote ends
    * @param options list of proposal vote options
@@ -38,7 +38,7 @@ interface IProposalValidator {
   function validateGenericProposalCreation(
     IVotingPowerStrategy strategy,
     address creator,
-    uint256 proposalID,
+    uint256 proposalId,
     uint256 startTimestamp,
     uint256 endTimestamp,
     string[] options,
@@ -47,12 +47,12 @@ interface IProposalValidator {
 
   /**
    * @dev Called to validate the cancellation of a proposal
-   * @param proposalID Id of the generic proposal
+   * @param proposalId Id of the generic proposal
    * @param creator address of the creator
    * @return boolean, true if can be cancelled
    **/
   function validateProposalCancellation(
-    uint256 proposalID,
+    uint256 proposalId,
     address creator
   ) external view returns (bool);
 

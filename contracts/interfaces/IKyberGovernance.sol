@@ -62,7 +62,11 @@ interface IKyberGovernance {
     bool canceled;
   }
 
-  function handleVotingPowerChanged(address staker, uint256 newVotingPower) external;
+  function handleVotingPowerChanged(
+    address staker,
+    uint256 newVotingPower,
+    uint256[] calldata proposalIds
+  ) external;
 
   /**
    * @dev emitted when a new binary proposal is created
