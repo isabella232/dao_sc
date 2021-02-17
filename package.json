@@ -24,6 +24,7 @@
     "url": "https://github.com/KyberNetwork/kyber_governance_sc/issues"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "3.4.0-solc-0.7",
     "dotenv": "8.2.0",
     "mathjs": "4.4.2",
     "solc": "0.7.5",
