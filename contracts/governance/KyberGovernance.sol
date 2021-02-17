@@ -6,7 +6,7 @@ import {IVotingStrategy} from '../interfaces/IVotingStrategy.sol';
 import {IExecutorWithTimelock} from '../interfaces/IExecutorWithTimelock.sol';
 import {IProposalValidator} from '../interfaces/IProposalValidator.sol';
 import {IGovernanceStrategy} from '../interfaces/IGovernanceStrategy.sol';
-import {IAaveGovernanceV2} from '../interfaces/IAaveGovernanceV2.sol';
+import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
 import {Ownable} from '../dependencies/open-zeppelin/Ownable.sol';
 import {SafeMath} from '../dependencies/open-zeppelin/SafeMath.sol';
 import {isContract, getChainId} from '../misc/Helpers.sol';
@@ -23,7 +23,7 @@ import {isContract, getChainId} from '../misc/Helpers.sol';
  *                   The transition to "Canceled" can appear in multiple states
  * @author Aave
  **/
-contract AaveGovernanceV2 is Ownable, IAaveGovernanceV2 {
+contract KyberGovernance is Ownable, IKyberGovernance {
   using SafeMath for uint256;
 
   address private _governanceStrategy;

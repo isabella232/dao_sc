@@ -2,7 +2,7 @@
 pragma solidity 0.7.5;
 pragma abicoder v2;
 
-import {IAaveGovernanceV2} from './IAaveGovernanceV2.sol';
+import {IKyberGovernance} from './IKyberGovernance.sol';
 
 interface IExecutorWithTimelock {
   /**
@@ -84,7 +84,6 @@ interface IExecutorWithTimelock {
     bool withDelegatecall,
     bytes resultData
   );
-
   /**
    * @dev Function, called by Governance, that queue a transaction, returns action hash
    * @param target smart contract target
@@ -171,7 +170,7 @@ interface IExecutorWithTimelock {
    * @param proposalId Id of the proposal against which to test
    * @return true of proposal is over grace period
    **/
-  function isProposalOverGracePeriod(IAaveGovernanceV2 governance, uint256 proposalId)
+  function isProposalOverGracePeriod(IKyberGovernance governance, uint256 proposalId)
     external
     view
     returns (bool);

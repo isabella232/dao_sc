@@ -2,112 +2,111 @@
 pragma solidity 0.7.5;
 pragma abicoder v2;
 
-import {IAaveGovernanceV2} from './IAaveGovernanceV2.sol';
+import {IKyberGovernance} from './IKyberGovernance.sol';
 
 interface IProposalValidator {
   /**
-   * @dev Called to validate a proposal (e.g when creating new proposal in Governance)
-   * @param governance Governance Contract
-   * @param user Address of the proposal creator
-   * @param blockNumber Block Number against which to make the test (e.g proposal creation block -1).
+   * @dev Called to validate a generic proposal
+   * @param strategy votingPowerStrategy contract to calculate voting power
+   * @param creator address of the creator
+   * @param proposalId Id of the binary proposal
+   * @param startTimestamp timestamp when vote starts
+   * @param endTimestamp timestamp when vote ends
+   * @param daoOperator address of daoOperator
    * @return boolean, true if can be created
    **/
-  function validateCreatorOfProposal(
-    IAaveGovernanceV2 governance,
-    address user,
-    uint256 blockNumber
+  function validateBinaryProposalCreation(
+    IVotingPowerStrategy strategy,
+    address creator,
+    uint256 proposalId,
+    uint256 startTimestamp,
+    uint256 endTimestamp,
+    address daoOperator
+  ) external view returns (bool);
+
+  /**
+   * @dev Called to validate a generic proposal
+   * @param strategy votingPowerStrategy contract to calculate voting power
+   * @param creator address of the creator
+   * @param proposalId Id of the generic proposal
+   * @param startTimestamp timestamp when vote starts
+   * @param endTimestamp timestamp when vote ends
+   * @param options list of proposal vote options
+   * @param daoOperator address of daoOperator
+   * @return boolean, true if can be created
+   **/
+  function validateGenericProposalCreation(
+    IVotingPowerStrategy strategy,
+    address creator,
+    uint256 proposalId,
+    uint256 startTimestamp,
+    uint256 endTimestamp,
+    string[] options,
+    address daoOperator
   ) external view returns (bool);
 
   /**
    * @dev Called to validate the cancellation of a proposal
-   * @param governance Governance Contract
-   * @param user Address of the proposal creator
-   * @param blockNumber Block Number against which to make the test (e.g proposal creation block -1).
+   * @param proposalId Id of the generic proposal
+   * @param creator address of the creator
    * @return boolean, true if can be cancelled
    **/
   function validateProposalCancellation(
-    IAaveGovernanceV2 governance,
-    address user,
-    uint256 blockNumber
+    uint256 proposalId,
+    address creator
   ) external view returns (bool);
-
-  /**
-   * @dev Returns whether a user has enough Proposition Power to make a proposal.
-   * @param governance Governance Contract
-   * @param user Address of the user to be challenged.
-   * @param blockNumber Block Number against which to make the challenge.
-   * @return true if user has enough power
-   **/
-  function isPropositionPowerEnough(
-    IAaveGovernanceV2 governance,
-    address user,
-    uint256 blockNumber
-  ) external view returns (bool);
-
-  /**
-   * @dev Returns the minimum Proposition Power needed to create a proposition.
-   * @param governance Governance Contract
-   * @param blockNumber Blocknumber at which to evaluate
-   * @return minimum Proposition Power needed
-   **/
-  function getMinimumPropositionPowerNeeded(IAaveGovernanceV2 governance, uint256 blockNumber)
-    external
-    view
-    returns (uint256);
 
   /**
    * @dev Returns whether a proposal passed or not
-   * @param governance Governance Contract
+   * @param strategy votingPowerStrategy contract to calculate voting power
    * @param proposalId Id of the proposal to set
    * @return true if proposal passed
    **/
-  function isProposalPassed(IAaveGovernanceV2 governance, uint256 proposalId)
-    external
-    view
-    returns (bool);
+  function isProposalPassed(
+    IVotingPowerStrategy strategy,
+    uint256 proposalId
+  ) external view returns (bool);
 
   /**
-   * @dev Check whether a proposal has reached quorum, ie has enough FOR-voting-power
-   * Here quorum is not to understand as number of votes reached, but number of for-votes reached
-   * @param governance Governance Contract
+   * @dev Check whether a proposal has reached quorum
+   * @param strategy votingPowerStrategy contract to calculate voting power
    * @param proposalId Id of the proposal to verify
    * @return voting power needed for a proposal to pass
    **/
-  function isQuorumValid(IAaveGovernanceV2 governance, uint256 proposalId)
-    external
-    view
-    returns (bool);
+  function isQuorumValid(
+    IVotingPowerStrategy strategy,
+    uint256 proposalId
+  ) external view returns (bool);
 
   /**
    * @dev Check whether a proposal has enough extra FOR-votes than AGAINST-votes
-   * FOR VOTES - AGAINST VOTES > VOTE_DIFFERENTIAL * voting supply
-   * @param governance Governance Contract
+   * @param strategy votingPowerStrategy contract to calculate voting power
    * @param proposalId Id of the proposal to verify
    * @return true if enough For-Votes
    **/
-  function isVoteDifferentialValid(IAaveGovernanceV2 governance, uint256 proposalId)
-    external
-    view
-    returns (bool);
+  function isVoteDifferentialValid(
+    IVotingPowerStrategy strategy,
+    uint256 proposalId
+  ) external view returns (bool);
+  
+  /**
+   * @dev Check whether...
+   * @param proposalId Id of the proposal to verify
+   * @param voter voter address
+   * @param choice vote options the voter selected
+   * @return true if
+   **/
+  function validateVote(
+    uint256 proposalId,
+    address voter,
+    uint256 choice
+  ) external view returns (bool);
 
   /**
-   * @dev Calculates the minimum amount of Voting Power needed for a proposal to Pass
-   * @param votingSupply Total number of oustanding voting tokens
-   * @return voting power needed for a proposal to pass
+   * @dev Get maximum voting duration constant value
+   * @return the maximum voting duration value in seconds
    **/
-  function getMinimumVotingPowerNeeded(uint256 votingSupply) external view returns (uint256);
-
-  /**
-   * @dev Get proposition threshold constant value
-   * @return the proposition threshold value (100 <=> 1%)
-   **/
-  function PROPOSITION_THRESHOLD() external view returns (uint256);
-
-  /**
-   * @dev Get voting duration constant value
-   * @return the voting duration value in seconds
-   **/
-  function VOTING_DURATION() external view returns (uint256);
+  function MAX_VOTING_DURATION() external view returns (uint256);
 
   /**
    * @dev Get the vote differential threshold constant value
