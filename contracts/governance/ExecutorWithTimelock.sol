@@ -182,7 +182,7 @@ contract ExecutorWithTimelock is IExecutorWithTimelock {
     bytes memory data,
     uint256 executionTime,
     bool withDelegatecall
-  ) public payable override onlyAdmin returns (bytes memory) {
+  ) public override payable onlyAdmin returns (bytes memory) {
     bytes32 actionHash = keccak256(
       abi.encode(target, value, signature, data, executionTime, withDelegatecall)
     );
@@ -203,7 +203,7 @@ contract ExecutorWithTimelock is IExecutorWithTimelock {
     bool success;
     bytes memory resultData;
     if (withDelegatecall) {
-      require(msg.value >= value, "NOT_ENOUGH_MSG_VALUE");
+      require(msg.value >= value, 'NOT_ENOUGH_MSG_VALUE');
       // solium-disable-next-line security/no-call-value
       (success, resultData) = target.delegatecall(callData);
     } else {
@@ -231,7 +231,7 @@ contract ExecutorWithTimelock is IExecutorWithTimelock {
    * @dev Getter of the current admin address (should be governance)
    * @return The address of the current admin
    **/
-  function getAdmin() external view override returns (address) {
+  function getAdmin() external override view returns (address) {
     return _admin;
   }
 
@@ -239,7 +239,7 @@ contract ExecutorWithTimelock is IExecutorWithTimelock {
    * @dev Getter of the current pending admin address
    * @return The address of the pending admin
    **/
-  function getPendingAdmin() external view override returns (address) {
+  function getPendingAdmin() external override view returns (address) {
     return _pendingAdmin;
   }
 
@@ -247,7 +247,7 @@ contract ExecutorWithTimelock is IExecutorWithTimelock {
    * @dev Getter of the delay between queuing and execution
    * @return The delay in seconds
    **/
-  function getDelay() external view override returns (uint256) {
+  function getDelay() external override view returns (uint256) {
     return _delay;
   }
 
@@ -257,7 +257,7 @@ contract ExecutorWithTimelock is IExecutorWithTimelock {
    * keccak256(abi.encode(target, value, signature, data, executionTime, withDelegatecall))
    * @return true if underlying action of actionHash is queued
    **/
-  function isActionQueued(bytes32 actionHash) external view override returns (bool) {
+  function isActionQueued(bytes32 actionHash) external override view returns (bool) {
     return _queuedTransactions[actionHash];
   }
 
@@ -269,11 +269,13 @@ contract ExecutorWithTimelock is IExecutorWithTimelock {
    **/
   function isProposalOverGracePeriod(IAaveGovernanceV2 governance, uint256 proposalId)
     external
-    view
     override
+    view
     returns (bool)
   {
-    IAaveGovernanceV2.ProposalWithoutVotes memory proposal = governance.getProposalById(proposalId);
+    IAaveGovernanceV2.ProposalWithoutVotes memory proposal = governance.getProposalById(
+      proposalId
+    );
 
     return (block.timestamp > proposal.executionTime.add(GRACE_PERIOD));
   }

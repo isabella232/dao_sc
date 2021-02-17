@@ -1,14 +1,8 @@
-# Aave Governance v2
+# KyberDao Katana
 
 ## Architecture
 
 ![governance-v2-architecture](./gov-v2-architecture.jpg)
-
-## Audits
-
-The Aave Governance V2 has been audited by Peckshied, with the final report [here](./audits/PeckShield-Audit-AaveGovernance2-final.pdf)
-
-## Planned configurations for mainnet
 
 ### AaveGovernanceV2
 - voting delay (time between a proposal is submitted and the voting is opened): 0 blocks, as for us this process is done beforehand in the governance forum
@@ -43,44 +37,32 @@ It will control the upgradeability of the AAVE token, the stkAAVE, any change in
 
 
 ## Setup
+1. Clone this repo
+2. `yarn install`
 
-The repository uses Docker Compose to manage sensitive keys and load the configuration. Prior any action like test or deploy, you must run `docker-compose up` to start the `contracts-env` container, and then connect to the container console via `docker-compose exec contracts-env bash`.
+## Compilation
+`yarn compile` to compile contracts for all solidity versions.
 
-Follow the next steps to setup the repository:
+## Contract Deployment / Interactions
 
-- Install `docker` and `docker-compose`
-- Create an enviroment file named `.env` and fill the next enviroment variables
-
-```
-# Mnemonic, only first address will be used
-MNEMONIC=""
-
-# Add Alchemy or Infura provider keys, alchemy takes preference at the config level
-ALCHEMY_KEY=""
-INFURA_KEY=""
-
-# Your access token from Gitlab, with the api scope enabled, to install @aave-tech/aave-token package from Gitlab Package Registry. Check this guide to get one https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html
-GITLAB_ACCESS_TOKEN=""
-
-# Optional Etherscan key, for automatize the verification of the contracts at Etherscan
-ETHERSCAN_KEY=""
-
-# Optional, if you plan to use Tenderly scripts
-TENDERLY_PROJECT=""
-TENDERLY_USERNAME=""
+For interactions or contract deployments on public testnets / mainnet, create a `.env` file specifying your private key and infura api key, with the following format:
 
 ```
-
-## Test
-
-For running the test suite, run:
-
-```
-docker-compose run contracts-env npm run test
+PRIVATE_KEY=0x****************************************************************
+INFURA_API_KEY=********************************
 ```
 
-For running coverage, run:
+## Testing with Hardhat
+1. If contracts have not been compiled, run `yarn compile`. This step can be skipped subsequently.
+2. Run `yarn test`
+3. Use `./tst.sh -f` for running a specific test file.
 
-```
-docker-compose run contracts-env npm run coverage
-```
+### Example Commands
+- `yarn test` (Runs all tests)
+- `./tst.sh -f ./test/kyberDao.js` (Test only kyberDao.js)
+
+### Example
+`yarn hardhat test --no-compile ./test/kyberDao.js`
+
+## Coverage
+`yarn coverage` (Runs coverage for all applicable files)
