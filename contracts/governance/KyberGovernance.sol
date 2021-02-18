@@ -636,7 +636,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       optionBitMask: uint32(optionBitMask),
       votingPower: uint224(votingPower)
     });
-    // emit VoteEmitted(proposalId, voter, support, votingPower);
+    emit VoteEmitted(proposalId, voter, uint32(optionBitMask), uint224(votingPower));
   }
 
   function _authorizeExecutor(address executor) internal {
@@ -651,11 +651,11 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
 
   function _authorizedVotingPowerStrategy(address strategy) internal {
     _authorizedVotingPowerStrategies[strategy] = true;
-    // emit ExecutorAuthorized(strategy);
+    emit VotingPowerStrategyAuthorized(strategy);
   }
 
   function _unauthorizedVotingPowerStrategy(address strategy) internal {
     _authorizedVotingPowerStrategies[strategy] = false;
-    // emit ExecutorUnauthorized(strategy);
+    emit VotingPowerStrategyUnauthorized(strategy);
   }
 }

@@ -137,15 +137,20 @@ interface IKyberGovernance {
    * @param voteOptions vote options selected by voter
    * @param votingPower Power of the voter/vote
    **/
-  event VoteEmitted(uint256 id, address indexed voter, uint32 voteOptions, uint224 votingPower);
-
-  event GovernanceStrategyChanged(address indexed newStrategy, address indexed initiatorChange);
-
-  event VotingDelayChanged(uint256 newVotingDelay, address indexed initiatorChange);
+  event VoteEmitted(
+    uint256 id,
+    address indexed voter,
+    uint32 voteOptions,
+    uint224 votingPower
+  );
 
   event ExecutorAuthorized(address executor);
 
   event ExecutorUnauthorized(address executor);
+
+  event VotingPowerStrategyAuthorized(address strategy);
+
+  event VotingPowerStrategyUnauthorized(address strategy);
 
   /**
    * @dev Creates a Binary Proposal (needs to be validated by the Proposal Validator)
