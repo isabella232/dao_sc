@@ -7,7 +7,9 @@ import {IVotingPowerStrategy} from './IVotingPowerStrategy.sol';
 
 interface IKyberGovernance {
 
-  enum ProposalState { Pending, Canceled, Active, Failed, Succeeded, Queued, Expired, Executed }
+  enum ProposalState {
+    Pending, Canceled, Active, Failed, Succeeded, Queued, Expired, Executed, Finalized
+  }
   enum ProposalType { Generic, Binary }
 
   struct Vote {
@@ -41,6 +43,14 @@ interface IKyberGovernance {
   struct Proposal {
     ProposalWithoutVote proposalData;
     mapping(address => Vote) votes;
+  }
+
+  struct BinaryProposalParams {
+    address[] targets;
+    uint256[] values;
+    string[] signatures;
+    bytes[] calldatas;
+    bool[] withDelegatecalls;
   }
 
   function handleVotingPowerChanged(
@@ -138,30 +148,27 @@ interface IKyberGovernance {
   event ExecutorUnauthorized(address executor);
 
   /**
-   * @dev Creates a Binary Proposal
-   * @param executor ExecutorWithTimelock contract that will execute the proposal
-   * @param strategy votingPowerStrategy contract to calculate voting power
-   * @param targets list of contracts called by proposal's associated transactions
-   * @param values list of value in wei for each propoposal's associated transaction
-   * @param signatures list of function signatures (can be empty) to be used when created the callData
-   * @param calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
-   * @param withDelegatecalls if true, transaction delegatecalls the taget, else calls the target
-   * @param startTime timestamp when vote starts
-   * @param endTime timestamp when vote ends
-   * @param link URL link of the proposal
+   * @dev Creates a Binary Proposal (needs to be validated by the Proposal Validator)
+   * @param executor The ExecutorWithTimelock contract that will execute the proposal
+   * @param strategy voting power strategy of the proposal
+   * @param executionParams data for execution, includes
+   *   targets list of contracts called by proposal's associated transactions
+   *   values list of value in wei for each proposal's associated transaction
+   *   signatures list of function signatures (can be empty) to be used when created the callData
+   *   calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
+   *   withDelegatecalls boolean, true = transaction delegatecalls the taget, else calls the target
+   * @param startTime start timestamp to allow vote
+   * @param endTime end timestamp of the proposal
+   * @param link link to the proposal description
    **/
   function createBinaryProposal(
     IExecutorWithTimelock executor,
     IVotingPowerStrategy strategy,
-    address[] calldata targets,
-    uint256[] calldata values,
-    string[] calldata signatures,
-    bytes[] calldata calldatas,
-    bool[] calldata withDelegatecalls,
+    BinaryProposalParams memory executionParams,
     uint256 startTime,
     uint256 endTime,
-    string calldata link
-  ) external returns (uint256);
+    string memory link
+  ) external returns (uint256 proposalId);
 
   /**
    * @dev Creates a Generic Proposal
@@ -175,11 +182,11 @@ interface IKyberGovernance {
   function createGenericProposal(
     IExecutorWithTimelock executor,
     IVotingPowerStrategy strategy,
-    string[] calldata options,
+    string[] memory options,
     uint256 startTime,
     uint256 endTime,
-    string calldata link
-  ) external returns (uint256);
+    string memory link
+  ) external returns (uint256 proposalId);
 
 
   /**

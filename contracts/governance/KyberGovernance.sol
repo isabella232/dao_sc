@@ -21,28 +21,21 @@ import {getChainId} from '../misc/Helpers.sol';
  * - Submit Vote to a Proposal
  * Proposal States : Pending => Active => Succeeded(/Failed) => Queued => Executed(/Expired)
  *                   The transition to "Canceled" can appear in multiple states
- * @author Aave
  **/
 contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   using SafeMath for uint256;
 
+  bytes32 public constant DOMAIN_TYPEHASH = keccak256(
+    'EIP712Domain(string name,uint256 chainId,address verifyingContract)'
+  );
+  bytes32 public constant VOTE_EMITTED_TYPEHASH = keccak256('VoteEmitted(uint256 id,uint256 optionBitMask)');
+  string public constant NAME = 'Kyber Governance';
+
+  address private _daoOperator;
   uint256 private _proposalsCount;
   mapping(uint256 => Proposal) private _proposals;
   mapping(address => bool) private _authorizedExecutors;
   mapping(address => bool) private _authorizedVotingPowerStrategies;
-
-  address private _daoOperator;
-
-  bytes32 public constant DOMAIN_TYPEHASH = keccak256(
-    'EIP712Domain(string name,uint256 chainId,address verifyingContract)'
-  );
-  bytes32 public constant VOTE_EMITTED_TYPEHASH = keccak256('VoteEmitted(uint256 id,bool support)');
-  string public constant NAME = 'Aave Governance v2';
-
-  modifier onlyDaoOperator() {
-    require(msg.sender == _daoOperator, 'ONLY_BY_DAO_OPERATOR');
-    _;
-  }
 
   constructor(
     address admin,
@@ -61,11 +54,12 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @dev Creates a Binary Proposal (needs to be validated by the Proposal Validator)
    * @param executor The ExecutorWithTimelock contract that will execute the proposal
    * @param strategy voting power strategy of the proposal
-   * @param targets list of contracts called by proposal's associated transactions
-   * @param values list of value in wei for each proposal's associated transaction
-   * @param signatures list of function signatures (can be empty) to be used when created the callData
-   * @param calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
-   * @param withDelegatecalls boolean, true = transaction delegatecalls the taget, else calls the target
+   * @param executionParams data for execution, includes
+   *   targets list of contracts called by proposal's associated transactions
+   *   values list of value in wei for each proposal's associated transaction
+   *   signatures list of function signatures (can be empty) to be used when created the callData
+   *   calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
+   *   withDelegatecalls boolean, true = transaction delegatecalls the taget, else calls the target
    * @param startTime start timestamp to allow vote
    * @param endTime end timestamp of the proposal
    * @param link link to the proposal description
@@ -73,35 +67,39 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   function createBinaryProposal(
     IExecutorWithTimelock executor,
     IVotingPowerStrategy strategy,
-    address[] calldata targets,
-    uint256[] calldata values,
-    string[] calldata signatures,
-    bytes[] calldata calldatas,
-    bool[] calldata withDelegatecalls,
+    BinaryProposalParams memory executionParams,
     uint256 startTime,
     uint256 endTime,
-    string calldata link
+    string memory link
   )
     external override returns (uint256 proposalId)
   {
-    require(targets.length != 0, 'CREATE_BINARY_INVALID_EMPTY_TARGETS');
     require(
-      targets.length == values.length &&
-        targets.length == signatures.length &&
-        targets.length == calldatas.length &&
-        targets.length == withDelegatecalls.length,
+      executionParams.targets.length != 0,
+      'CREATE_BINARY_INVALID_EMPTY_TARGETS'
+    );
+    require(
+      executionParams.targets.length == executionParams.values.length &&
+      executionParams.targets.length == executionParams.signatures.length &&
+      executionParams.targets.length == executionParams.calldatas.length &&
+      executionParams.targets.length == executionParams.withDelegatecalls.length,
       'CREATE_BINARY_INCONSISTENT_PARAMS_LENGTH'
     );
 
-    require(isExecutorAuthorized(address(executor)), 'CREATE_BINARY_EXECUTOR_NOT_AUTHORIZED');
-    require(isVotingPowerStrategyAuthorized(address(strategy)), 'CREATE_BINARY_STRATEGY_NOT_AUTHORIZED');
+    require(
+      isExecutorAuthorized(address(executor)),
+      'CREATE_BINARY_EXECUTOR_NOT_AUTHORIZED'
+    );
+    require(
+      isVotingPowerStrategyAuthorized(address(strategy)),
+      'CREATE_BINARY_STRATEGY_NOT_AUTHORIZED'
+    );
 
     proposalId = _proposalsCount;
     require(
       IProposalValidator(address(executor)).validateBinaryProposalCreation(
         strategy,
         msg.sender,
-        proposalId,
         startTime,
         endTime,
         _daoOperator
@@ -109,27 +107,26 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       'VALIDATE_PROPOSAL_CREATION_INVALID'
     );
 
-    Proposal storage newProposal = _proposals[proposalId];
-    ProposalWithoutVote storage newProposalData = newProposal.proposalData;
+    ProposalWithoutVote storage newProposalData = _proposals[proposalId].proposalData;
     newProposalData.id = proposalId;
     newProposalData.proposalType = ProposalType.Binary;
     newProposalData.creator = msg.sender;
     newProposalData.executor = executor;
-    newProposalData.targets = targets;
-    newProposalData.values = values;
-    newProposalData.signatures = signatures;
-    newProposalData.calldatas = calldatas;
-    newProposalData.withDelegatecalls = withDelegatecalls;
+    newProposalData.targets = executionParams.targets;
+    newProposalData.values = executionParams.values;
+    newProposalData.signatures = executionParams.signatures;
+    newProposalData.calldatas = executionParams.calldatas;
+    newProposalData.withDelegatecalls = executionParams.withDelegatecalls;
     newProposalData.startTime = startTime;
     newProposalData.endTime = endTime;
     newProposalData.strategy = strategy;
     newProposalData.link = link;
 
-    string[] memory options = new string[](2);
-    (options[0], options[1]) = ("YES", "NO");
-    uint256[] memory voteCounts = new uint256[](2);
-    newProposalData.options = options;
-    newProposalData.voteCounts = voteCounts;
+    // only 2 options, YES and NO
+    newProposalData.options.push("YES");
+    newProposalData.options.push("NO");
+    newProposalData.voteCounts.push(0);
+    newProposalData.voteCounts.push(0);
     // use max voting power to finalise the proposal
     newProposalData.maxVotingPower = strategy.getMaxVotingPower();
 
@@ -142,11 +139,11 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       msg.sender,
       executor,
       strategy,
-      targets,
-      values,
-      signatures,
-      calldatas,
-      withDelegatecalls,
+      executionParams.targets,
+      executionParams.values,
+      executionParams.signatures,
+      executionParams.calldatas,
+      executionParams.withDelegatecalls,
       startTime,
       endTime,
       link
@@ -166,21 +163,26 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   function createGenericProposal(
     IExecutorWithTimelock executor,
     IVotingPowerStrategy strategy,
-    string[] calldata options,
+    string[] memory options,
     uint256 startTime,
     uint256 endTime,
-    string calldata link
+    string memory link
   )
     external override returns (uint256 proposalId)
   {
-    require(isExecutorAuthorized(address(executor)), 'CREATE_BINARY_EXECUTOR_NOT_AUTHORIZED');
-    require(isVotingPowerStrategyAuthorized(address(strategy)), 'CREATE_BINARY_STRATEGY_NOT_AUTHORIZED');
+    require(
+      isExecutorAuthorized(address(executor)),
+      'CREATE_BINARY_EXECUTOR_NOT_AUTHORIZED'
+    );
+    require(
+      isVotingPowerStrategyAuthorized(address(strategy)),
+      'CREATE_BINARY_STRATEGY_NOT_AUTHORIZED'
+    );
     proposalId = _proposalsCount;
     require(
       IProposalValidator(address(executor)).validateGenericProposalCreation(
         strategy,
         msg.sender,
-        proposalId,
         startTime,
         endTime,
         options,
@@ -207,7 +209,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     // call strategy to record data if needed
     strategy.handleProposalCreation(proposalId, startTime, endTime);
 
-    emit BinaryProposalCreated(
+    emit GenericProposalCreated(
       proposalId,
       msg.sender,
       executor,
@@ -221,26 +223,28 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
 
   /**
    * @dev Cancels a Proposal.
-   * - Callable by the _daoOperator with relaxed conditions, or by anybody if the conditions of
-   *   cancellation on the executor are fulfilled
+   * - Callable by the _daoOperator with relaxed conditions,
+   *   or by anybody if the conditions of cancellation on the executor are fulfilled
    * @param proposalId id of the proposal
    **/
   function cancel(uint256 proposalId) external override {
     ProposalState state = getProposalState(proposalId);
     require(
       state != ProposalState.Executed &&
-        state != ProposalState.Canceled &&
-        state != ProposalState.Expired,
+      state != ProposalState.Canceled &&
+      state != ProposalState.Expired &&
+      state != ProposalState.Finalized,
       'ONLY_BEFORE_EXECUTED'
     );
 
-    Proposal storage proposal = _proposals[proposalId];
+    ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
     require(
       msg.sender == _daoOperator ||
-        IProposalValidator(address(proposal.executor)).validateProposalCancellation(
-          proposalId,
-          proposal.creator
-        ),
+      IProposalValidator(address(proposal.executor)).validateProposalCancellation(
+        IKyberGovernance(this),
+        proposalId,
+        proposal.creator
+      ),
       'VALIDATE_PROPOSAL_CANCELLATION_FAILED'
     );
     proposal.canceled = true;
@@ -267,9 +271,15 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param proposalId id of the proposal to queue
    **/
   function queue(uint256 proposalId) external override {
-    require(getProposalState(proposalId) == ProposalState.Succeeded, 'INVALID_STATE_FOR_QUEUE');
-    Proposal storage proposal = _proposals[proposalId];
-    require(proposal.proposalType == ProposalType.Binary, "PROPOSAL_DOES_NOT_HAVE_TXS");
+    require(
+      getProposalState(proposalId) == ProposalState.Succeeded,
+      'INVALID_STATE_FOR_QUEUE'
+    );
+    ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
+    require(
+      proposal.proposalType == ProposalType.Binary,
+      "PROPOSAL_DOES_NOT_HAVE_TXS"
+    );
     uint256 executionTime = block.timestamp.add(proposal.executor.getDelay());
     for (uint256 i = 0; i < proposal.targets.length; i++) {
       _queueOrRevert(
@@ -292,9 +302,15 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param proposalId id of the proposal to execute
    **/
   function execute(uint256 proposalId) external payable override {
-    require(getProposalState(proposalId) == ProposalState.Queued, 'ONLY_QUEUED_PROPOSALS');
-    Proposal storage proposal = _proposals[proposalId];
-    require(proposal.proposalType == ProposalType.Binary, "ONLY_BINARY_PROPOSAL");
+    require(
+      getProposalState(proposalId) == ProposalState.Queued,
+      'ONLY_QUEUED_PROPOSALS'
+    );
+    ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
+    require(
+      proposal.proposalType == ProposalType.Binary,
+      "ONLY_BINARY_PROPOSAL"
+    );
     proposal.executed = true;
     for (uint256 i = 0; i < proposal.targets.length; i++) {
       proposal.executor.executeTransaction{value: proposal.values[i]}(
@@ -312,25 +328,25 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   /**
    * @dev Function allowing msg.sender to vote for/against a proposal
    * @param proposalId id of the proposal
-   * @param choice bitmask choice of voter
-   *  for Binary Proposal, choice should be either 1 or 2 (Accept/Reject)
-   *  for Generic Proposal, choice is the bitmask of voted options
+   * @param optionBitMask bitmask optionBitMask of voter
+   *  for Binary Proposal, optionBitMask should be either 1 or 2 (Accept/Reject)
+   *  for Generic Proposal, optionBitMask is the bitmask of voted options
    **/
-  function submitVote(uint256 proposalId, uint256 choice) external override {
-    return _submitVote(msg.sender, proposalId, choice);
+  function submitVote(uint256 proposalId, uint256 optionBitMask) external override {
+    return _submitVote(msg.sender, proposalId, optionBitMask);
   }
 
   /**
    * @dev Function to register the vote of user that has voted offchain via signature
    * @param proposalId id of the proposal
-   * @param choice the bit mask of voted options
+   * @param optionBitMask the bit mask of voted options
    * @param v v part of the voter signature
    * @param r r part of the voter signature
    * @param s s part of the voter signature
    **/
   function submitVoteBySignature(
     uint256 proposalId,
-    uint256 choice,
+    uint256 optionBitMask,
     uint8 v,
     bytes32 r,
     bytes32 s
@@ -338,13 +354,19 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     bytes32 digest = keccak256(
       abi.encodePacked(
         '\x19\x01',
-        keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(NAME)), getChainId(), address(this))),
-        keccak256(abi.encode(VOTE_EMITTED_TYPEHASH, proposalId, choice))
+        keccak256(
+          abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(NAME)),
+          getChainId(),
+          address(this))
+        ),
+        keccak256(
+          abi.encode(VOTE_EMITTED_TYPEHASH, proposalId, optionBitMask)
+        )
       )
     );
     address signer = ecrecover(digest, v, r, s);
     require(signer != address(0), 'INVALID_SIGNATURE');
-    return _submitVote(signer, proposalId, choice);
+    return _submitVote(signer, proposalId, optionBitMask);
   }
 
   /**
@@ -360,28 +382,30 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     address staker,
     uint256 newVotingPower,
     uint256[] calldata proposalIds
-  ) external override {
+  )
+    external override
+  {
     for(uint256 i = 0; i < proposalIds.length; i++ ) {
-      if (getProposalState(proposalIds[i]) == ProposalState.Active) {
-        ProposalWithoutVote storage proposal = _proposals[proposalIds[i]];
-        require(address(proposal.strategy) == msg.sender, "ONLY_VOTING_POWER_STRATEGY");
-        Vote memory vote = proposal.votes[staker];
-        if (vote.choice == 0) continue; // not voted yet
-        uint256 oldVotingPower = uint256(vote.votingPower);
-        proposal.totalVotes = proposal.totalVotes + newVotingPower - oldVotingPower;
-        // update vote count for each voted option
-        for(uint256 j = 0; j < proposal.options.length; j++) {
-          if (vote.choice & (2 ** j) == (2 ** j)) {
-            // expect proposal.voteCounts[i] >= oldVotingPower
-            proposal.voteCounts[j] = proposal.voteCounts[j] + newVotingPower - oldVotingPower;
-          }
+      // only update for active proposals
+      if (getProposalState(proposalIds[i]) != ProposalState.Active) continue;
+      ProposalWithoutVote storage proposal = _proposals[proposalIds[i]].proposalData;
+      require(address(proposal.strategy) == msg.sender, "ONLY_VOTING_POWER_STRATEGY");
+      Vote memory vote = _proposals[proposalIds[i]].votes[staker];
+      if (vote.optionBitMask == 0) continue; // not voted yet
+      uint256 oldVotingPower = uint256(vote.votingPower);
+      // voter has already voted => totalVotes >= oldVotingPower
+      proposal.totalVotes = proposal.totalVotes + newVotingPower - oldVotingPower;
+      for(uint256 j = 0; j < proposal.options.length; j++) {
+        if (vote.optionBitMask & 2**j == 2**j) {
+          // voter has already voted this option => proposal.voteCounts[j] >= oldVotingPower
+          proposal.voteCounts[j] = proposal.voteCounts[j] + newVotingPower - oldVotingPower;
         }
-        // update voting power of the staker
-        _proposals[proposalIds[i]].votes[staker] = Vote({
-          choice: vote.choice,
-          votingPower: uint224(newVotingPower)
-        });
       }
+      // update voting power of the staker
+      _proposals[proposalIds[i]].votes[staker] = Vote({
+        optionBitMask: vote.optionBitMask,
+        votingPower: uint224(newVotingPower)
+      });
     }
   }
 
@@ -389,7 +413,9 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @dev Add new addresses to the list of authorized executors
    * @param executors list of new addresses to be authorized executors
    **/
-  function authorizeExecutors(address[] memory executors) public override onlyAdmin {
+  function authorizeExecutors(address[] memory executors)
+    public override onlyAdmin
+  {
     for (uint256 i = 0; i < executors.length; i++) {
       _authorizeExecutor(executors[i]);
     }
@@ -399,7 +425,9 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @dev Remove addresses to the list of authorized executors
    * @param executors list of addresses to be removed as authorized executors
    **/
-  function unauthorizeExecutors(address[] memory executors) public override onlyAdmin {
+  function unauthorizeExecutors(address[] memory executors)
+    public override onlyAdmin
+  {
     for (uint256 i = 0; i < executors.length; i++) {
       _unauthorizeExecutor(executors[i]);
     }
@@ -409,7 +437,9 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @dev Add new addresses to the list of authorized strategies
    * @param strategies list of new addresses to be authorized strategies
    **/
-  function authorizeVotingPowerStrategies(address[] memory strategies) public override onlyAdmin {
+  function authorizeVotingPowerStrategies(address[] memory strategies)
+    public override onlyAdmin
+  {
     for (uint256 i = 0; i < strategies.length; i++) {
       _authorizedVotingPowerStrategy(strategies[i]);
     }
@@ -419,7 +449,9 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @dev Remove addresses to the list of authorized strategies
    * @param strategies list of addresses to be removed as authorized strategies
    **/
-  function unauthorizeVotingPowerStrategies(address[] memory strategies) public override onlyAdmin {
+  function unauthorizeVotingPowerStrategies(address[] memory strategies)
+    public override onlyAdmin
+  {
     for (uint256 i = 0; i < strategies.length; i++) {
       _unauthorizedVotingPowerStrategy(strategies[i]);
     }
@@ -430,7 +462,10 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param executor address to evaluate as authorized executor
    * @return true if authorized
    **/
-  function isExecutorAuthorized(address executor) public view override returns (bool) {
+  function isExecutorAuthorized(address executor)
+    public view override
+    returns (bool)
+  {
     return _authorizedExecutors[executor];
   }
 
@@ -439,7 +474,10 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param strategy address to evaluate as authorized strategy
    * @return true if authorized
    **/
-  function isVotingPowerStrategyAuthorized(address strategy) public view override returns (bool) {
+  function isVotingPowerStrategyAuthorized(address strategy)
+    public view override
+    returns (bool)
+  {
     return _authorizedVotingPowerStrategies[strategy];
   }
 
@@ -494,16 +532,21 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @param proposalId id of the proposal
    * @return The current state if the proposal
    **/
-  function getProposalState(uint256 proposalId) public view override returns (ProposalState) {
+  function getProposalState(uint256 proposalId)
+    public view override
+    returns (ProposalState)
+  {
     require(_proposalsCount >= proposalId, 'INVALID_PROPOSAL_ID');
-    Proposal storage proposal = _proposals[proposalId];
+    ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
     if (proposal.canceled) {
       return ProposalState.Canceled;
     } else if (block.timestamp < proposal.startTime) {
       return ProposalState.Pending;
     } else if (block.timestamp <= proposal.endTime) {
       return ProposalState.Active;
-    } else if (!IProposalValidator(address(proposal.executor)).isProposalPassed(_proposals.strategy, proposalId)) {
+    } else if (proposal.proposalType == ProposalType.Generic) {
+      return ProposalState.Finalized;
+    } else if (!IProposalValidator(address(proposal.executor)).isProposalPassed(IKyberGovernance(this), proposalId)) {
       return ProposalState.Failed;
     } else if (proposal.executionTime == 0) {
       return ProposalState.Succeeded;
@@ -516,15 +559,11 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     }
   }
 
-  function getProposalWinningOption(uint256 proposalId) external view returns (uint256) {
-    ProposalState state = getProposalState(proposalId);
-    if (
-      state == ProposalState.Canceled ||
-      state == ProposalState.Pending ||
-      state == ProposalState.Active
-    ) {
-      return 0;
-    }
+  function getProposalWinningOption(uint256 proposalId)
+    external view override
+    returns (uint256)
+  {
+    if (getProposalState(proposalId) != ProposalState.Finalized) return 0;
     // TODO: Check if has any winning options
     return 0;
   }
@@ -540,39 +579,52 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   ) internal {
     require(
       !executor.isActionQueued(
-        keccak256(abi.encode(target, value, signature, callData, executionTime, withDelegatecall))
+        keccak256(
+          abi.encode(target, value, signature, callData, executionTime, withDelegatecall)
+        )
       ),
       'DUPLICATED_ACTION'
     );
-    executor.queueTransaction(target, value, signature, callData, executionTime, withDelegatecall);
+    executor.queueTransaction(
+      target,
+      value,
+      signature,
+      callData,
+      executionTime,
+      withDelegatecall
+    );
   }
 
   function _submitVote(
     address voter,
     uint256 proposalId,
-    uint256 choice
+    uint256 optionBitMask
   ) internal {
-    require(choice > 0, "VOTING_NO_CHOICE_SPECIFIED");
     require(getProposalState(proposalId) == ProposalState.Active, 'VOTING_CLOSED');
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
-    uint256 numOptions;
+    uint256 numOptions = proposal.options.length;
     if (proposal.proposalType == ProposalType.Binary) {
-      // either Yes or No
-      require(choice == 1 || choice == 2, "VOTING_WRONG_VOTE_FOR_BINARY_PROPOSAL");
+      // either Yes (1) or No (2)
+      require(
+        optionBitMask == 1 || optionBitMask == 2,
+        "VOTING_WRONG_VOTE_FOR_BINARY_PROPOSAL"
+      );
     } else {
-      numOptions = proposal.options.length;
-      require(choice < 2**numOptions, "VOTING_INVALID_OPTION_FOR_GENERIC_PROPOSAL");
+      require(
+        optionBitMask > 0 && optionBitMask < 2**numOptions,
+        "VOTING_INVALID_OPTION_FOR_GENERIC_PROPOSAL"
+      );
     }
 
     Vote memory vote = _proposals[proposalId].votes[voter];
-    uint256 votingPower = proposal.strategy.handleVote(voter, proposalId, choice);
+    uint256 votingPower = proposal.strategy.handleVote(voter, proposalId, optionBitMask);
     if (vote.optionBitMask == 0) {
       // first time vote
       proposal.totalVotes += votingPower;
     }
     for(uint256 i = 0; i < proposal.options.length; i++) {
       bool isVoted = (vote.optionBitMask & 2**i) == 2**i;
-      bool isVoting = (choice & 2**i) == 2**i;
+      bool isVoting = (optionBitMask & 2**i) == 2**i;
       if (isVoted && !isVoting) {
         proposal.voteCounts[i] -= votingPower;
       } else if (!isVoted && isVoting){
@@ -580,8 +632,8 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       }
     }
 
-    proposal.votes[voter] = Vote({
-      optionBitMask: uint32(choice),
+    _proposals[proposalId].votes[voter] = Vote({
+      optionBitMask: uint32(optionBitMask),
       votingPower: uint224(votingPower)
     });
     // emit VoteEmitted(proposalId, voter, support, votingPower);
@@ -598,12 +650,12 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   }
 
   function _authorizedVotingPowerStrategy(address strategy) internal {
-    _authorizedVotingPowerStrategy[strategy] = true;
+    _authorizedVotingPowerStrategies[strategy] = true;
     // emit ExecutorAuthorized(strategy);
   }
 
   function _unauthorizedVotingPowerStrategy(address strategy) internal {
-    _authorizedVotingPowerStrategy[strategy] = false;
+    _authorizedVotingPowerStrategies[strategy] = false;
     // emit ExecutorUnauthorized(strategy);
   }
 }
