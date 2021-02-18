@@ -561,8 +561,11 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     returns (uint256)
   {
     if (getProposalState(proposalId) != ProposalState.Finalized) return 0;
-    // TODO: Check if has any winning options
-    return 0;
+    ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
+    return IProposalValidator(address(proposal.executor)).getWinningOption(
+      IKyberGovernance(this),
+      proposalId
+    );
   }
 
   function _queueOrRevert(
