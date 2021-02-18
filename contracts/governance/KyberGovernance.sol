@@ -394,18 +394,15 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       if (vote.optionBitMask == 0) continue; // not voted yet
       uint256 oldVotingPower = uint256(vote.votingPower);
       // voter has already voted => totalVotes >= oldVotingPower
-      proposal.totalVotes = proposal.totalVotes + newVotingPower - oldVotingPower;
+      proposal.totalVotes = proposal.totalVotes.add(newVotingPower).sub(oldVotingPower);
       for(uint256 j = 0; j < proposal.options.length; j++) {
         if (vote.optionBitMask & 2**j == 2**j) {
           // voter has already voted this option => proposal.voteCounts[j] >= oldVotingPower
-          proposal.voteCounts[j] = proposal.voteCounts[j] + newVotingPower - oldVotingPower;
+          proposal.voteCounts[j] = proposal.voteCounts[j].add(newVotingPower).sub(oldVotingPower);
         }
       }
       // update voting power of the staker
-      _proposals[proposalIds[i]].votes[staker] = Vote({
-        optionBitMask: vote.optionBitMask,
-        votingPower: uint224(newVotingPower)
-      });
+      _proposals[proposalIds[i]].votes[staker].votingPower = _safeUint224(newVotingPower);
     }
   }
 
@@ -620,23 +617,23 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     uint256 votingPower = proposal.strategy.handleVote(voter, proposalId, optionBitMask);
     if (vote.optionBitMask == 0) {
       // first time vote
-      proposal.totalVotes += votingPower;
+      proposal.totalVotes = proposal.totalVotes.add(votingPower);
     }
     for(uint256 i = 0; i < proposal.options.length; i++) {
       bool isVoted = (vote.optionBitMask & 2**i) == 2**i;
       bool isVoting = (optionBitMask & 2**i) == 2**i;
       if (isVoted && !isVoting) {
-        proposal.voteCounts[i] -= votingPower;
+        proposal.voteCounts[i] = proposal.voteCounts[i].sub(votingPower);
       } else if (!isVoted && isVoting){
-        proposal.voteCounts[i] += votingPower;
+        proposal.voteCounts[i] = proposal.voteCounts[i].add(votingPower);
       }
     }
 
     _proposals[proposalId].votes[voter] = Vote({
-      optionBitMask: uint32(optionBitMask),
-      votingPower: uint224(votingPower)
+      optionBitMask: _safeUint32(optionBitMask),
+      votingPower: _safeUint224(votingPower)
     });
-    emit VoteEmitted(proposalId, voter, uint32(optionBitMask), uint224(votingPower));
+    emit VoteEmitted(proposalId, voter, _safeUint32(optionBitMask), _safeUint224(votingPower));
   }
 
   function _authorizeExecutor(address executor) internal {
@@ -657,5 +654,15 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   function _unauthorizedVotingPowerStrategy(address strategy) internal {
     _authorizedVotingPowerStrategies[strategy] = false;
     emit VotingPowerStrategyUnauthorized(strategy);
+  }
+
+  function _safeUint224(uint256 value) internal pure returns (uint224) {
+    require(value < 2**224 - 1, "VALUE_TOO_BIG");
+    return uint224(value);
+  }
+
+  function _safeUint32(uint256 value) internal pure returns (uint32) {
+    require(value < 2**32 - 1, "VALUE_TOO_BIG");
+    return uint32(value);
   }
 }
