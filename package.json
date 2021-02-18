@@ -45,6 +45,7 @@
     "chai-bn": "0.2.1",
     "ethers": "5.0.0",
     "hardhat": "2.0.8",
+    "hardhat-gas-reporter": "1.0.4",
     "prettier": "2.0.4",
     "prettier-plugin-solidity": "1.0.0-alpha.57",
     "solidity-coverage": "0.7.12"
