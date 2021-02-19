@@ -28,7 +28,9 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   bytes32 public constant DOMAIN_TYPEHASH = keccak256(
     'EIP712Domain(string name,uint256 chainId,address verifyingContract)'
   );
-  bytes32 public constant VOTE_EMITTED_TYPEHASH = keccak256('VoteEmitted(uint256 id,uint256 optionBitMask)');
+  bytes32 public constant VOTE_EMITTED_TYPEHASH =keccak256(
+    'VoteEmitted(uint256 id,uint256 optionBitMask)'
+  );
   string public constant NAME = 'Kyber Governance';
 
   address private _daoOperator;
@@ -58,8 +60,10 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    *   targets list of contracts called by proposal's associated transactions
    *   values list of value in wei for each proposal's associated transaction
    *   signatures list of function signatures (can be empty) to be used when created the callData
-   *   calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
-   *   withDelegatecalls boolean, true = transaction delegatecalls the taget, else calls the target
+   *   calldatas list of calldatas: if associated signature empty,
+   *        calldata ready, else calldata is arguments
+   *   withDelegatecalls boolean, true = transaction delegatecalls the taget,
+  *         else calls the target
    * @param startTime start timestamp to allow vote
    * @param endTime end timestamp of the proposal
    * @param link link to the proposal description
@@ -393,12 +397,13 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       Vote memory vote = _proposals[proposalIds[i]].votes[staker];
       if (vote.optionBitMask == 0) continue; // not voted yet
       uint256 oldVotingPower = uint256(vote.votingPower);
-      // voter has already voted => totalVotes >= oldVotingPower
+      // update totalVotes of the proposal
       proposal.totalVotes = proposal.totalVotes.add(newVotingPower).sub(oldVotingPower);
       for(uint256 j = 0; j < proposal.options.length; j++) {
         if (vote.optionBitMask & 2**j == 2**j) {
-          // voter has already voted this option => proposal.voteCounts[j] >= oldVotingPower
-          proposal.voteCounts[j] = proposal.voteCounts[j].add(newVotingPower).sub(oldVotingPower);
+          // update voteCounts for each voted option
+          proposal.voteCounts[j] =
+            proposal.voteCounts[j].add(newVotingPower).sub(oldVotingPower);
         }
       }
       // update voting power of the staker
@@ -619,15 +624,15 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     Vote memory vote = _proposals[proposalId].votes[voter];
     uint256 votingPower = proposal.strategy.handleVote(voter, proposalId, optionBitMask);
     if (vote.optionBitMask == 0) {
-      // first time vote
+      // first time vote, increase the totalVotes of the proposal
       proposal.totalVotes = proposal.totalVotes.add(votingPower);
     }
     for(uint256 i = 0; i < proposal.options.length; i++) {
-      bool isVoted = (vote.optionBitMask & 2**i) == 2**i;
+      bool hasVoted = (vote.optionBitMask & 2**i) == 2**i;
       bool isVoting = (optionBitMask & 2**i) == 2**i;
-      if (isVoted && !isVoting) {
+      if (hasVoted && !isVoting) {
         proposal.voteCounts[i] = proposal.voteCounts[i].sub(votingPower);
-      } else if (!isVoted && isVoting){
+      } else if (!hasVoted && isVoting){
         proposal.voteCounts[i] = proposal.voteCounts[i].add(votingPower);
       }
     }
@@ -636,7 +641,12 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       optionBitMask: _safeUint32(optionBitMask),
       votingPower: _safeUint224(votingPower)
     });
-    emit VoteEmitted(proposalId, voter, _safeUint32(optionBitMask), _safeUint224(votingPower));
+    emit VoteEmitted(
+      proposalId,
+      voter,
+      _safeUint32(optionBitMask),
+      _safeUint224(votingPower)
+    );
   }
 
   function _authorizeExecutor(address executor) internal {

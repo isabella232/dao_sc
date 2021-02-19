@@ -67,9 +67,12 @@ interface IKyberGovernance {
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param targets list of contracts called by proposal's associated transactions
    * @param values list of value in wei for each propoposal's associated transaction
-   * @param signatures list of function signatures (can be empty) to be used when created the callData
-   * @param calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
-   * @param withDelegatecalls boolean, true = transaction delegatecalls the taget, else calls the target
+   * @param signatures list of function signatures (can be empty) to be used
+   *     when created the callData
+   * @param calldatas list of calldatas: if associated signature empty,
+  *     calldata ready, else calldata is arguments
+   * @param withDelegatecalls boolean, true = transaction delegatecalls the taget,
+   *    else calls the target
    * @param startTime timestamp when vote starts
    * @param endTime timestamp when vote ends
    * @param link URL link of the proposal
@@ -123,7 +126,11 @@ interface IKyberGovernance {
    * @param executionTime time when proposal underlying transactions can be executed
    * @param initiatorQueueing address of the initiator of the queuing transaction
    **/
-  event ProposalQueued(uint256 id, uint256 executionTime, address indexed initiatorQueueing);
+  event ProposalQueued(
+    uint256 id,
+    uint256 executionTime,
+    address indexed initiatorQueueing
+  );
   /**
    * @dev emitted when a proposal is executed
    * @param id Id of the proposal
@@ -159,9 +166,12 @@ interface IKyberGovernance {
    * @param executionParams data for execution, includes
    *   targets list of contracts called by proposal's associated transactions
    *   values list of value in wei for each proposal's associated transaction
-   *   signatures list of function signatures (can be empty) to be used when created the callData
-   *   calldatas list of calldatas: if associated signature empty, calldata ready, else calldata is arguments
-   *   withDelegatecalls boolean, true = transaction delegatecalls the taget, else calls the target
+   *   signatures list of function signatures (can be empty)
+   *        to be used when created the callData
+   *   calldatas list of calldatas: if associated signature empty,
+   *        calldata ready, else calldata is arguments
+   *   withDelegatecalls boolean, true = transaction delegatecalls the taget,
+   *        else calls the target
    * @param startTime start timestamp to allow vote
    * @param endTime end timestamp of the proposal
    * @param link link to the proposal description
@@ -273,7 +283,8 @@ interface IKyberGovernance {
    * @param strategy address to evaluate as authorized strategy
    * @return true if authorized
    **/
-  function isVotingPowerStrategyAuthorized(address strategy) external view returns (bool);
+  function isVotingPowerStrategyAuthorized(address strategy)
+    external view returns (bool);
 
   /**
    * @dev Getter the address of the guardian, that can mainly cancel proposals
@@ -313,14 +324,17 @@ interface IKyberGovernance {
    * @param proposalId id of the proposal
    * @return The current state if the proposal
    **/
-  function getProposalState(uint256 proposalId) external view returns (ProposalState);
+  function getProposalState(uint256 proposalId)
+    external view returns (ProposalState);
 
   /**
    * @dev Returns index of the winning option of the proposal
-   *  return 0 if proposal has no winning option (for generic proposals), or not yet finalised
+   *  return 0 if proposal has no winning option (for generic proposals),
+   *      or not yet finalised
    *  if proposal is binary, it will return 1 if proposal is passed
    * @param proposalId id of the proposal
    * @return winning option index
    **/
-  function getProposalWinningOption(uint256 proposalId) external view returns (uint256);
+  function getProposalWinningOption(uint256 proposalId)
+    external view returns (uint256);
 }
