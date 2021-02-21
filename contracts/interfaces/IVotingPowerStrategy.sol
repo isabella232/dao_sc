@@ -4,18 +4,18 @@ pragma abicoder v2;
 
 interface IVotingPowerStrategy {
   function handleProposalCreation(
-    uint256 proposalID,
+    uint256 proposalId,
     uint256 startTime,
     uint256 endTime
   ) external;
 
-  function handleProposalCancellation(uint256 proposalID) external;
+  function handleProposalCancellation(uint256 proposalId) external;
  
   /// @param choice: unused param for future use
   /// call to init data if needed, and return voter's voting power
   function handleVote(
     address voter,
-    uint256 proposalID,
+    uint256 proposalId,
     uint256 choice
   ) external returns(uint256 votingPower);
 

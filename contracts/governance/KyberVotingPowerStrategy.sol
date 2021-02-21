@@ -33,34 +33,34 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
 
     /// init epochutils
     epochPeriodInSeconds = _staking.epochPeriodInSeconds();
-    firstEpochStartTimestamp = _staking.firstEpochStartTimestamp();
+    firstEpochStartTime = _staking.firstEpochStartTime();
   }
 
-  /// @dev endTimestamp: furture usage
+  /// @dev endTime: furture usage
   function handleProposalCreation(
-    uint256 proposalID,
-    uint256 startTimestamp,
-    uint256 /*endTimestamp*/
+    uint256 proposalId,
+    uint256 startTime,
+    uint256 /*endTime*/
   ) external override {
     require(msg.sender == address(governance), 'not governance');
 
-    uint256 epoch = getEpochNumber(startTimestamp);
+    uint256 epoch = getEpochNumber(startTime);
 
-    epochProposals[epoch].push(proposalID);
+    epochProposals[epoch].push(proposalId);
   }
 
-  function handleProposalCancellation(uint256 proposalID) external override {
+  function handleProposalCancellation(uint256 proposalId) external override {
     require(msg.sender == address(governance), 'not governance');
 
-    IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalID);
-    uint256 epoch = getEpochNumber(proposal.startTimestamp);
+    IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalId);
+    uint256 epoch = getEpochNumber(proposal.startTime);
 
-    uint256[] storage proposalIDs = epochProposals[epoch];
-    for (uint256 i = 0; i < proposalIDs.length; i++) {
-      if (proposalIDs[i] == proposalID) {
+    uint256[] storage proposalIds = epochProposals[epoch];
+    for (uint256 i = 0; i < proposalIds.length; i++) {
+      if (proposalIds[i] == proposalId) {
         // remove this campaign id out of list
-        proposalIDs[i] = proposalIDs[proposalIDs.length - 1];
-        proposalIDs.pop();
+        proposalIds[i] = proposalIds[proposalIds.length - 1];
+        proposalIds.pop();
         break;
       }
     }
@@ -68,11 +68,11 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
 
 
   /// @dev assume that governance check start and end time
-  /// @dev proposalID, choice: unused param for future use
+  /// @dev proposalId, choice: unused param for future use
   /// call to init data if needed, and return voter's voting power
   function handleVote(
     address voter,
-    uint256 /*proposalID*/,
+    uint256 /*proposalId*/,
     uint256 /*choice*/
   ) external override returns (uint256 votingPower) {
     require(msg.sender == address(governance), 'not governance');
@@ -105,16 +105,16 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
   }
 
   function validateProposalCreation(
-    uint256 startTimestamp,
-    uint256 endTimestamp
+    uint256 startTime,
+    uint256 endTime
   ) external view override returns (bool) {
     /// start in the past
-    if(startTimestamp < block.timestamp) {
+    if(startTime < block.timestamp) {
       return false;
     }
-    uint256 startEpoch = getEpochNumber(startTimestamp);
+    uint256 startEpoch = getEpochNumber(startTime);
     /// proposal must start and end within an epoch
-    if(startEpoch != getEpochNumber(endTimestamp)) {
+    if(startEpoch != getEpochNumber(endTime)) {
       return false;
     }
     /// proposal must be current or next epoch
