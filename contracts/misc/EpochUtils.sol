@@ -20,6 +20,6 @@ contract EpochUtils is IEpochUtils {
       return 0;
     }
     // ((currentTime - firstEpochStartTime) / epochPeriodInSeconds) + 1;
-    return ((timestamp.sub(firstEpochStartTime)).div(epochPeriodInSeconds)).add(1);
+    return ((currentTime.sub(firstEpochStartTime)).div(epochPeriodInSeconds)).add(1);
   }
 }

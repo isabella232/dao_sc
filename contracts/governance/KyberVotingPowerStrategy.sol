@@ -36,22 +36,28 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     firstEpochStartTime = _staking.firstEpochStartTime();
   }
 
+  modifier onlyStaking() {
+    require(msg.sender == address(staking), 'only staking');
+    _;
+  }
+
+  modifier onlyGovernance() {
+    require(msg.sender == address(governance), 'only governance');
+    _;
+  }
+
   /// @dev endTime: furture usage
   function handleProposalCreation(
     uint256 proposalId,
     uint256 startTime,
     uint256 /*endTime*/
-  ) external override {
-    require(msg.sender == address(governance), 'not governance');
-
+  ) external override onlyGovernance {
     uint256 epoch = getEpochNumber(startTime);
 
     epochProposals[epoch].push(proposalId);
   }
 
-  function handleProposalCancellation(uint256 proposalId) external override {
-    require(msg.sender == address(governance), 'not governance');
-
+  function handleProposalCancellation(uint256 proposalId) external override onlyGovernance {
     IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalId);
     uint256 epoch = getEpochNumber(proposal.startTime);
 
@@ -66,69 +72,76 @@ contract KyberVotingPowerStrategy is IVotingPowerStrategy, EpochUtils {
     }
   }
 
-
   /// @dev assume that governance check start and end time
   /// @dev proposalId, choice: unused param for future use
   /// call to init data if needed, and return voter's voting power
   function handleVote(
     address voter,
-    uint256 /*proposalId*/,
+    uint256, /*proposalId*/
     uint256 /*choice*/
-  ) external override returns (uint256 votingPower) {
-    require(msg.sender == address(governance), 'not governance');
-
-    (uint256 stake, uint256 dStake, address representative) =
-      staking.initAndReturnStakerDataForCurrentEpoch(voter);
+  ) external override onlyGovernance returns (uint256 votingPower) {
+    (uint256 stake, uint256 dStake, address representative) = staking
+      .initAndReturnStakerDataForCurrentEpoch(voter);
     return representative == voter ? stake.add(dStake) : dStake;
   }
 
-  function handleWithdraw(address user, uint256 /*reduceAmount*/) external override {
+  function handleWithdraw(
+    address user,
+    uint256 /*reduceAmount*/
+  ) external override onlyStaking {
     uint256 currentEpoch = getCurrentEpochNumber();
-    (uint256 stake, uint256 dStake, address representative) =
-      staking.getStakerData(user, currentEpoch);
+    (uint256 stake, uint256 dStake, address representative) = staking.getStakerData(
+      user,
+      currentEpoch
+    );
     uint256 votingPower = representative == user ? stake.add(dStake) : dStake;
     governance.handleVotingPowerChanged(user, votingPower, epochProposals[currentEpoch]);
   }
 
-
   ///
   /// @dev call to get voter's voting power given timestamp
   /// @dev only for reading purpose. when submitVote, should call handleVote instead
-  function getVotingPower(
-    address voter,
-    uint256 timestamp
-  ) external view override returns (uint256 votingPower) {
+  function getVotingPower(address voter, uint256 timestamp)
+    external
+    override
+    view
+    returns (uint256 votingPower)
+  {
     uint256 currentEpoch = getEpochNumber(timestamp);
-    (uint256 stake, uint256 dStake, address representative) =
-      staking.getStakerData(voter, currentEpoch);
+    (uint256 stake, uint256 dStake, address representative) = staking.getStakerData(
+      voter,
+      currentEpoch
+    );
     votingPower = representative == voter ? stake.add(dStake) : dStake;
   }
 
-  function validateProposalCreation(
-    uint256 startTime,
-    uint256 endTime
-  ) external view override returns (bool) {
+  function validateProposalCreation(uint256 startTime, uint256 endTime)
+    external
+    override
+    view
+    returns (bool)
+  {
     /// start in the past
-    if(startTime < block.timestamp) {
+    if (startTime < block.timestamp) {
       return false;
     }
     uint256 startEpoch = getEpochNumber(startTime);
     /// proposal must start and end within an epoch
-    if(startEpoch != getEpochNumber(endTime)) {
+    if (startEpoch != getEpochNumber(endTime)) {
       return false;
     }
     /// proposal must be current or next epoch
-    if(startEpoch > getCurrentEpochNumber().add(1)) {
+    if (startEpoch > getCurrentEpochNumber().add(1)) {
       return false;
     }
     /// too many proposals
-    if(epochProposals[startEpoch].length >= MAX_PROPOSAL_PER_EPOCH) {
+    if (epochProposals[startEpoch].length >= MAX_PROPOSAL_PER_EPOCH) {
       return false;
     }
     return true;
   }
 
-  function getMaxVotingPower() external view override returns (uint256) {
+  function getMaxVotingPower() external override view returns (uint256) {
     return staking.kncToken().totalSupply();
   }
 }
