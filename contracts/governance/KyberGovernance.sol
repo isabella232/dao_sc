@@ -549,7 +549,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       return ProposalState.Active;
     } else if (proposal.proposalType == ProposalType.Generic) {
       return ProposalState.Finalized;
-    } else if (!IProposalValidator(address(proposal.executor)).isProposalPassed(IKyberGovernance(this), proposalId)) {
+    } else if (!IProposalValidator(address(proposal.executor)).isBinaryProposalPassed(IKyberGovernance(this), proposalId)) {
       return ProposalState.Failed;
     } else if (proposal.executionTime == 0) {
       return ProposalState.Succeeded;
@@ -562,13 +562,13 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     }
   }
 
-  function getProposalWinningOption(uint256 proposalId)
+  function getGenericProposalWinningOption(uint256 proposalId)
     external view override
     returns (uint256)
   {
     if (getProposalState(proposalId) != ProposalState.Finalized) return 0;
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
-    return IProposalValidator(address(proposal.executor)).getWinningOption(
+    return IProposalValidator(address(proposal.executor)).getGenericProposalWinningOption(
       IKyberGovernance(this),
       proposalId
     );
