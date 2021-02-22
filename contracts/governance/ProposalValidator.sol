@@ -162,7 +162,7 @@ contract ProposalValidator is IProposalValidator {
     view
     returns (bool)
   {
-    IKyberGovernance.ProposalWithoutVotes memory proposal = governance.getProposalById(
+    IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(
       proposalId
     );
     uint256 votingSupply = IGovernanceStrategy(proposal.strategy).getTotalVotingSupplyAt(
@@ -185,7 +185,7 @@ contract ProposalValidator is IProposalValidator {
     view
     returns (bool)
   {
-    IKyberGovernance.ProposalWithoutVotes memory proposal = governance.getProposalById(
+    IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(
       proposalId
     );
     uint256 votingSupply = IGovernanceStrategy(proposal.strategy).getTotalVotingSupplyAt(

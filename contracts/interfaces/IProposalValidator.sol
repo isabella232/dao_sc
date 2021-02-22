@@ -12,8 +12,8 @@ interface IProposalValidator {
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param creator address of the creator
    * @param proposalId Id of the binary proposal
-   * @param startTimestamp timestamp when vote starts
-   * @param endTimestamp timestamp when vote ends
+   * @param startTime timestamp when vote starts
+   * @param endTime timestamp when vote ends
    * @param daoOperator address of daoOperator
    * @return boolean, true if can be created
    **/
@@ -21,8 +21,8 @@ interface IProposalValidator {
     IVotingPowerStrategy strategy,
     address creator,
     uint256 proposalId,
-    uint256 startTimestamp,
-    uint256 endTimestamp,
+    uint256 startTime,
+    uint256 endTime,
     address daoOperator
   ) external view returns (bool);
 
@@ -31,8 +31,8 @@ interface IProposalValidator {
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param creator address of the creator
    * @param proposalId Id of the generic proposal
-   * @param startTimestamp timestamp when vote starts
-   * @param endTimestamp timestamp when vote ends
+   * @param startTime timestamp when vote starts
+   * @param endTime timestamp when vote ends
    * @param options list of proposal vote options
    * @param daoOperator address of daoOperator
    * @return boolean, true if can be created
@@ -41,9 +41,9 @@ interface IProposalValidator {
     IVotingPowerStrategy strategy,
     address creator,
     uint256 proposalId,
-    uint256 startTimestamp,
-    uint256 endTimestamp,
-    string[] options,
+    uint256 startTime,
+    uint256 endTime,
+    string[] calldata options,
     address daoOperator
   ) external view returns (bool);
 

@@ -273,7 +273,7 @@ contract ExecutorWithTimelock is IExecutorWithTimelock {
     view
     returns (bool)
   {
-    IKyberGovernance.ProposalWithoutVotes memory proposal = governance.getProposalById(
+    IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(
       proposalId
     );
 
