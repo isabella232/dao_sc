@@ -5,7 +5,6 @@ pragma abicoder v2;
 import {IKyberGovernance} from './IKyberGovernance.sol';
 import {IVotingPowerStrategy} from './IVotingPowerStrategy.sol';
 
-
 interface IProposalValidator {
   /**
    * @dev Called to validate a generic proposal
