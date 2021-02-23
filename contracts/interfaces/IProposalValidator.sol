@@ -7,10 +7,9 @@ import {IVotingPowerStrategy} from './IVotingPowerStrategy.sol';
 
 interface IProposalValidator {
   /**
-   * @dev Called to validate a generic proposal
+   * @dev Called to validate a binary proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param creator address of the creator
-   * @param proposalId Id of the binary proposal
    * @param startTime timestamp when vote starts
    * @param endTime timestamp when vote ends
    * @param daoOperator address of daoOperator
@@ -19,7 +18,6 @@ interface IProposalValidator {
   function validateBinaryProposalCreation(
     IVotingPowerStrategy strategy,
     address creator,
-    uint256 proposalId,
     uint256 startTime,
     uint256 endTime,
     address daoOperator
@@ -29,7 +27,6 @@ interface IProposalValidator {
    * @dev Called to validate a generic proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param creator address of the creator
-   * @param proposalId Id of the generic proposal
    * @param startTime timestamp when vote starts
    * @param endTime timestamp when vote ends
    * @param options list of proposal vote options
@@ -39,7 +36,6 @@ interface IProposalValidator {
   function validateGenericProposalCreation(
     IVotingPowerStrategy strategy,
     address creator,
-    uint256 proposalId,
     uint256 startTime,
     uint256 endTime,
     string[] calldata options,
@@ -48,66 +44,78 @@ interface IProposalValidator {
 
   /**
    * @dev Called to validate the cancellation of a proposal
+   * @param governance governance contract to fetch proposals from
    * @param proposalId Id of the generic proposal
-   * @param creator address of the creator
+   * @param user entity initiating the cancellation
    * @return boolean, true if can be cancelled
    **/
   function validateProposalCancellation(
+    IKyberGovernance governance,
     uint256 proposalId,
-    address creator
+    address user
   ) external view returns (bool);
 
   /**
-   * @dev Returns whether a proposal passed or not
-   * @param strategy votingPowerStrategy contract to calculate voting power
+   * @dev Returns whether a binary proposal passed or not
+   * @param governance governance contract to fetch proposals from
    * @param proposalId Id of the proposal to set
    * @return true if proposal passed
    **/
-  function isProposalPassed(
-    IVotingPowerStrategy strategy,
+  function isBinaryProposalPassed(
+    IKyberGovernance governance,
     uint256 proposalId
   ) external view returns (bool);
 
   /**
+   * @dev Fetches winning option for a generic proposal
+   * @param governance governance contract to fetch proposals from
+   * @param proposalId Id of the proposal to set
+   * @return winningOption index of winning option in vote options array
+   **/
+  function getGenericProposalWinningOption(
+    IKyberGovernance governance,
+    uint256 proposalId
+  ) external view returns (uint256);
+
+  /**
    * @dev Check whether a proposal has reached quorum
-   * @param strategy votingPowerStrategy contract to calculate voting power
+   * @param governance governance contract to fetch proposals from
    * @param proposalId Id of the proposal to verify
    * @return voting power needed for a proposal to pass
    **/
   function isQuorumValid(
-    IVotingPowerStrategy strategy,
+    IKyberGovernance governance,
     uint256 proposalId
   ) external view returns (bool);
 
   /**
    * @dev Check whether a proposal has enough extra FOR-votes than AGAINST-votes
-   * @param strategy votingPowerStrategy contract to calculate voting power
+   * @param governance governance contract to fetch proposals from
    * @param proposalId Id of the proposal to verify
    * @return true if enough For-Votes
    **/
   function isVoteDifferentialValid(
-    IVotingPowerStrategy strategy,
+    IKyberGovernance governance,
     uint256 proposalId
-  ) external view returns (bool);
-  
-  /**
-   * @dev Check whether...
-   * @param proposalId Id of the proposal to verify
-   * @param voter voter address
-   * @param choice vote options the voter selected
-   * @return true if
-   **/
-  function validateVote(
-    uint256 proposalId,
-    address voter,
-    uint256 choice
   ) external view returns (bool);
 
   /**
-   * @dev Get maximum voting duration constant value
-   * @return the maximum voting duration value in seconds
+   * @dev Get proposition threshold constant value
+   * @return the proposition threshold value (100 <=> 1%)
    **/
-  function MAX_VOTING_DURATION() external view returns (uint256);
+  function PROPOSITION_THRESHOLD() external view returns (uint256);
+
+  /**
+   * @dev Get maximum vote options for a generic proposal
+   * @return the maximum no. of vote options possible for a generic proposal
+   **/
+  function MAX_VOTING_OPTIONS() external view returns (uint256);
+
+  /**
+   * @dev Get minimum voting duration constant value
+   * @return the minimum voting duration value in seconds
+   **/
+  function MIN_VOTING_DURATION() external view returns (uint256);
 
   /**
    * @dev Get the vote differential threshold constant value
