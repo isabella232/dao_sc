@@ -67,17 +67,6 @@ interface IProposalValidator {
   ) external view returns (bool);
 
   /**
-   * @dev Fetches winning option for a generic proposal
-   * @param governance governance contract to fetch proposals from
-   * @param proposalId Id of the proposal to set
-   * @return winningOption index of winning option in vote options array
-   **/
-  function getGenericProposalWinningOption(
-    IKyberGovernance governance,
-    uint256 proposalId
-  ) external view returns (uint256);
-
-  /**
    * @dev Check whether a proposal has reached quorum
    * @param governance governance contract to fetch proposals from
    * @param proposalId Id of the proposal to verify

@@ -142,7 +142,7 @@ contract ProposalValidator is IProposalValidator, Utils {
   }
 
   /**
-   * @dev Check whether a proposal has reached quorum
+   * @dev Check whether a binary proposal has reached quorum
    * Here quorum is not the number of votes reached, but number of YES_VOTES
    * @param governance governance contract to fetch proposals from
    * @param proposalId Id of the proposal to verify
@@ -155,18 +155,12 @@ contract ProposalValidator is IProposalValidator, Utils {
     returns (bool)
   {
     IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalId);
-    if (proposal.proposalType == IKyberGovernance.ProposalType.Binary) {
-      return isMinimumQuorumReached(proposal.voteCounts[YES_INDEX], proposal.maxVotingPower);
-    } else if (proposal.proposalType == IKyberGovernance.ProposalType.Generic) {
-      (,uint256 winningOptionVoteCount) = getWinningOptionData(proposal.voteCounts);
-      return isMinimumQuorumReached(winningOptionVoteCount, proposal.maxVotingPower);
-    } else {
-      return false;
-    }
+    if (proposal.proposalType != IKyberGovernance.ProposalType.Binary) return false;
+    return isMinimumQuorumReached(proposal.voteCounts[YES_INDEX], proposal.maxVotingPower);
   }
 
   /**
-   * @dev Check whether a proposal has sufficient YES_VOTES
+   * @dev Check whether a binary proposal has sufficient YES_VOTES
    * Binary proposal: YES_VOTES - NO_VOTES > VOTE_DIFFERENTIAL * voting supply
    * Binary proposal: MOST_VOTED_OPTION - ALL_OTHER_VOTES > VOTE_DIFFERENTIAL * voting supply
    * @param governance Governance Contract
@@ -180,76 +174,12 @@ contract ProposalValidator is IProposalValidator, Utils {
     returns (bool)
   {
     IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalId);
-    if (proposal.proposalType == IKyberGovernance.ProposalType.Binary) {
-      return (proposal.voteCounts[YES_INDEX].mul(ONE_HUNDRED_WITH_PRECISION).div(proposal.maxVotingPower) >
+    if (proposal.proposalType != IKyberGovernance.ProposalType.Binary) return false;
+    return (
+      proposal.voteCounts[YES_INDEX].mul(ONE_HUNDRED_WITH_PRECISION).div(proposal.maxVotingPower) >
       proposal.voteCounts[NO_INDEX].mul(ONE_HUNDRED_WITH_PRECISION).div(proposal.maxVotingPower).add(
-        VOTE_DIFFERENTIAL
-      ));
-    } else if (proposal.proposalType == IKyberGovernance.ProposalType.Generic) {
-      (,uint256 winningOptionVoteCount) = getWinningOptionData(proposal.voteCounts);
-      return isGenericVoteDifferentialValid(winningOptionVoteCount, proposal.totalVotes, proposal.maxVotingPower);
-    } else {
-      return false;
-    }
-  }
-
-  /**
-   * @dev Fetch the winning option of a generic proposal
-   * @param governance Governance Contract
-   * @param proposalId Id of the proposal to verify
-   * @return winningOption option index with the most votes and sufficient quorum, 0 otherwise
-   **/
-  function getGenericProposalWinningOption(IKyberGovernance governance, uint256 proposalId)
-    external
-    view
-    override
-    returns (uint256 winningOption)
-  {
-    IKyberGovernance.ProposalWithoutVote memory proposal = governance.getProposalById(proposalId);
-    if (proposal.proposalType != IKyberGovernance.ProposalType.Generic) return 0;
-
-    uint256 winningVoteCount;
-    (winningOption, winningVoteCount) = getWinningOptionData(proposal.voteCounts);
-    if (winningOption == 0) return 0;
-    if (!isMinimumQuorumReached(winningVoteCount, proposal.maxVotingPower)) return 0;
-    return (isGenericVoteDifferentialValid(winningVoteCount, proposal.totalVotes, proposal.maxVotingPower)) ?
-      winningOption : 0;
-  }
-
-  function getWinningOptionData(uint256[] memory voteCounts)
-    internal
-    pure
-    returns (uint256 winningOption, uint256 winningVoteCount)
-  {
-    uint256 maxVotedCount;
-    uint256 i;
-    // first, get maxVoteCount
-    for (i = 0; i < voteCounts.length; i++) {
-      if (voteCounts[i] > maxVotedCount) {
-        winningOption = i + 1;
-        maxVotedCount = voteCounts[i];
-        winningVoteCount = maxVotedCount;
-      }
-    }
-    // if there are duplicates, return 0
-    for (i = 0; i < voteCounts.length; i++) {
-      if (winningOption == i + 1) continue;
-      if (voteCounts[i] == maxVotedCount) {
-        winningOption = 0;
-        winningVoteCount = 0;
-      }
-    }
-  }
-
-  function isGenericVoteDifferentialValid(
-    uint256 winningVoteCount,
-    uint256 totalVotes,
-    uint256 maxVotingPower
-  ) internal view returns (bool) {
-    return (winningVoteCount.mul(ONE_HUNDRED_WITH_PRECISION).div(maxVotingPower) >
-      (totalVotes.sub(winningVoteCount)).mul(ONE_HUNDRED_WITH_PRECISION).div(maxVotingPower).add(
-        VOTE_DIFFERENTIAL
-      ));
+      VOTE_DIFFERENTIAL
+    ));
   }
 
   function isMinimumQuorumReached(uint256 votes, uint256 voteSupply) internal view returns (bool) {
