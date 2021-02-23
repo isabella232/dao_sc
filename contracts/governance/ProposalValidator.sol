@@ -55,6 +55,25 @@ contract ProposalValidator is IProposalValidator, Utils {
   }
 
   /**
+   * @dev Called to validate the cancellation of a proposal
+   * @param governance governance contract to fetch proposals from
+   * @param proposalId Id of the generic proposal
+   * @param user entity initiating the cancellation
+   * @return boolean, true if can be cancelled
+   **/
+  function validateProposalCancellation(
+    IKyberGovernance governance,
+    uint256 proposalId,
+    address user
+  ) external pure override returns (bool) {
+    // silence compilation warnings
+    governance;
+    proposalId;
+    user;
+    return false;
+  }
+
+  /**
    * @dev Called to validate a binary proposal
    * @param strategy votingPowerStrategy contract to calculate voting power
    * @param creator address of the creator
@@ -104,21 +123,6 @@ contract ProposalValidator is IProposalValidator, Utils {
     if (options.length > MAX_VOTING_OPTIONS) return false;
 
     return strategy.validateProposalCreation(startTime, endTime);
-  }
-
-  /**
-   * @dev Called to validate the cancellation of a proposal
-   * @param governance governance contract to fetch proposals from
-   * @param proposalId Id of the generic proposal
-   * @param user entity initiating the cancellation
-   * @return boolean, true if can be cancelled
-   **/
-  function validateProposalCancellation(
-    IKyberGovernance governance,
-    uint256 proposalId,
-    address user
-  ) external view override returns (bool) {
-    return false;
   }
 
   /**
@@ -218,12 +222,19 @@ contract ProposalValidator is IProposalValidator, Utils {
     returns (uint256 winningOption, uint256 winningVoteCount)
   {
     uint256 maxVotedCount;
-    for (uint256 i = 0; i < voteCounts.length; i++) {
+    uint256 i;
+    // first, get maxVoteCount
+    for (i = 0; i < voteCounts.length; i++) {
       if (voteCounts[i] > maxVotedCount) {
         winningOption = i + 1;
         maxVotedCount = voteCounts[i];
         winningVoteCount = maxVotedCount;
-      } else if (voteCounts[i] == maxVotedCount) {
+      }
+    }
+    // if there are duplicates, return 0
+    for (i = 0; i < voteCounts.length; i++) {
+      if (winningOption == i + 1) continue;
+      if (voteCounts[i] == maxVotedCount) {
         winningOption = 0;
         winningVoteCount = 0;
       }
