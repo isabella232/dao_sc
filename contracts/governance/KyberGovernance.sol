@@ -562,18 +562,6 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     }
   }
 
-  function getGenericProposalWinningOption(uint256 proposalId)
-    external view override
-    returns (uint256)
-  {
-    if (getProposalState(proposalId) != ProposalState.Finalized) return 0;
-    ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
-    return IProposalValidator(address(proposal.executor)).getGenericProposalWinningOption(
-      IKyberGovernance(this),
-      proposalId
-    );
-  }
-
   function _queueOrRevert(
     IExecutorWithTimelock executor,
     address target,
