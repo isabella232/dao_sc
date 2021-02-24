@@ -12,6 +12,8 @@ interface IKyberGovernance {
   }
   enum ProposalType { Generic, Binary }
 
+  /// For Binary proposal, optionBitMask is 0/1/2
+  /// For Generic proposal, optionBitMask is bitmask of voted options
   struct Vote {
     uint32 optionBitMask;
     uint224 votingPower;
@@ -308,8 +310,19 @@ interface IKyberGovernance {
   ) external view returns (ProposalWithoutVote memory);
 
   /**
+   * @dev Getter of the vote data of a proposal by id
+   * including totalVotes, voteCounts and options
+   * @param proposalId id of the proposal
+   * @return (totalVotes, voteCounts, options)
+   **/
+  function getProposalVoteDataById(uint256 proposalId)
+    external
+    view
+    returns (uint256, uint256[] memory, string[] memory);
+
+  /**
    * @dev Getter of the Vote of a voter about a proposal
-   * Note: Vote is a struct: ({uint256 bitOptionMask, uint256 votingPower})
+   * Note: Vote is a struct: ({uint32 bitOptionMask, uint224 votingPower})
    * @param proposalId id of the proposal
    * @param voter address of the voter
    * @return The associated Vote memory object

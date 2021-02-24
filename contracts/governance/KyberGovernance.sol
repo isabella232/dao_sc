@@ -515,8 +515,24 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
   }
 
   /**
+   * @dev Getter of the vote data of a proposal by id
+   * including totalVotes, voteCounts and options
+   * @param proposalId id of the proposal
+   * @return (totalVotes, voteCounts, options)
+   **/
+  function getProposalVoteDataById(uint256 proposalId)
+    external
+    view
+    override
+    returns (uint256, uint256[] memory, string[] memory)
+  {
+    ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
+    return (proposal.totalVotes, proposal.voteCounts, proposal.options);
+  }
+
+  /**
    * @dev Getter of the Vote of a voter about a proposal
-   * Note: Vote is a struct: ({bool support, uint248 votingPower})
+   * Note: Vote is a struct: ({uint32 bitOptionMask, uint224 votingPower})
    * @param proposalId id of the proposal
    * @param voter address of the voter
    * @return The associated Vote memory object
