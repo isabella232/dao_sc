@@ -12,7 +12,7 @@
     "compile": "./compile.sh",
     "c": "printf 'yes' | ./compile.sh",
     "coverage": "./coverage.sh",
-    "lint": "yarn solhint 'contracts/**/*.sol' && yarn prettier -c 'test/**/*.js'"
+    "lint": "./lint.sh"
   },
   "repository": {
     "type": "git",

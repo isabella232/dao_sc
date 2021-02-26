@@ -55,12 +55,6 @@ interface IKyberGovernance {
     bool[] withDelegatecalls;
   }
 
-  function handleVotingPowerChanged(
-    address staker,
-    uint256 newVotingPower,
-    uint256[] calldata proposalIds
-  ) external;
-
   /**
    * @dev emitted when a new binary proposal is created
    * @param id Id of the binary proposal
@@ -160,6 +154,12 @@ interface IKyberGovernance {
   event VotingPowerStrategyAuthorized(address strategy);
 
   event VotingPowerStrategyUnauthorized(address strategy);
+
+  function handleVotingPowerChanged(
+    address staker,
+    uint256 newVotingPower,
+    uint256[] calldata proposalIds
+  ) external;
 
   /**
    * @dev Creates a Binary Proposal (needs to be validated by the Proposal Validator)
@@ -262,13 +262,6 @@ interface IKyberGovernance {
   function unauthorizeExecutors(address[] calldata executors) external;
 
   /**
-   * @dev Returns whether an address is an authorized executor
-   * @param executor address to evaluate as authorized executor
-   * @return true if authorized
-   **/
-  function isExecutorAuthorized(address executor) external view returns (bool);
-
-  /**
    * @dev Add new addresses to the list of authorized strategies
    * @param strategies list of new addresses to be authorized strategies
    **/
@@ -279,6 +272,13 @@ interface IKyberGovernance {
    * @param strategies list of addresses to be removed as authorized strategies
    **/
   function unauthorizeVotingPowerStrategies(address[] calldata strategies) external;
+
+  /**
+   * @dev Returns whether an address is an authorized executor
+   * @param executor address to evaluate as authorized executor
+   * @return true if authorized
+   **/
+  function isExecutorAuthorized(address executor) external view returns (bool);
 
   /**
    * @dev Returns whether an address is an authorized strategy
