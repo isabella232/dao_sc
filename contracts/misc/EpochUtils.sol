@@ -8,14 +8,21 @@ import '../interfaces/IEpochUtils.sol';
 contract EpochUtils is IEpochUtils {
   using SafeMath for uint256;
 
-  uint256 public override epochPeriodInSeconds;
-  uint256 public override firstEpochStartTime;
+  uint256 public immutable override epochPeriodInSeconds;
+  uint256 public immutable override firstEpochStartTime;
 
-  function getCurrentEpochNumber() public view override returns (uint256) {
+  constructor(uint256 _epochPeriod, uint256 _startTime) {
+    require(_epochPeriod > 0, 'ctor: epoch period is 0');
+
+    epochPeriodInSeconds = _epochPeriod;
+    firstEpochStartTime = _startTime;
+  }
+
+  function getCurrentEpochNumber() public override view returns (uint256) {
     return getEpochNumber(block.timestamp);
   }
 
-  function getEpochNumber(uint256 currentTime) public view override returns (uint256) {
+  function getEpochNumber(uint256 currentTime) public override view returns (uint256) {
     if (currentTime < firstEpochStartTime || epochPeriodInSeconds == 0) {
       return 0;
     }

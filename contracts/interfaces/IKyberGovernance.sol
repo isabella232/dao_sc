@@ -6,11 +6,18 @@ import {IExecutorWithTimelock} from './IExecutorWithTimelock.sol';
 import {IVotingPowerStrategy} from './IVotingPowerStrategy.sol';
 
 interface IKyberGovernance {
-
   enum ProposalState {
-    Pending, Canceled, Active, Failed, Succeeded, Queued, Expired, Executed, Finalized
+    Pending,
+    Canceled,
+    Active,
+    Failed,
+    Succeeded,
+    Queued,
+    Expired,
+    Executed,
+    Finalized
   }
-  enum ProposalType { Generic, Binary }
+  enum ProposalType {Generic, Binary}
 
   /// For Binary proposal, optionBitMask is 0/1/2
   /// For Generic proposal, optionBitMask is bitmask of voted options
@@ -66,7 +73,7 @@ interface IKyberGovernance {
    * @param signatures list of function signatures (can be empty) to be used
    *     when created the callData
    * @param calldatas list of calldatas: if associated signature empty,
-  *     calldata ready, else calldata is arguments
+   *     calldata ready, else calldata is arguments
    * @param withDelegatecalls boolean, true = transaction delegatecalls the taget,
    *    else calls the target
    * @param startTime timestamp when vote starts
@@ -122,11 +129,7 @@ interface IKyberGovernance {
    * @param executionTime time when proposal underlying transactions can be executed
    * @param initiatorQueueing address of the initiator of the queuing transaction
    **/
-  event ProposalQueued(
-    uint256 id,
-    uint256 executionTime,
-    address indexed initiatorQueueing
-  );
+  event ProposalQueued(uint256 id, uint256 executionTime, address indexed initiatorQueueing);
   /**
    * @dev emitted when a proposal is executed
    * @param id Id of the proposal
@@ -140,12 +143,7 @@ interface IKyberGovernance {
    * @param voteOptions vote options selected by voter
    * @param votingPower Power of the voter/vote
    **/
-  event VoteEmitted(
-    uint256 id,
-    address indexed voter,
-    uint32 voteOptions,
-    uint224 votingPower
-  );
+  event VoteEmitted(uint256 id, address indexed voter, uint32 voteOptions, uint224 votingPower);
 
   event ExecutorAuthorized(address executor);
 
@@ -155,6 +153,9 @@ interface IKyberGovernance {
 
   event VotingPowerStrategyUnauthorized(address strategy);
 
+  /**
+   * @dev Function is triggered when users withdraw from staking and change voting power
+   */
   function handleVotingPowerChanged(
     address staker,
     uint256 newVotingPower,
@@ -204,7 +205,6 @@ interface IKyberGovernance {
     uint256 endTime,
     string memory link
   ) external returns (uint256 proposalId);
-
 
   /**
    * @dev Cancels a Proposal,
@@ -285,8 +285,7 @@ interface IKyberGovernance {
    * @param strategy address to evaluate as authorized strategy
    * @return true if authorized
    **/
-  function isVotingPowerStrategyAuthorized(address strategy)
-    external view returns (bool);
+  function isVotingPowerStrategyAuthorized(address strategy) external view returns (bool);
 
   /**
    * @dev Getter the address of the guardian, that can mainly cancel proposals
@@ -305,9 +304,7 @@ interface IKyberGovernance {
    * @param proposalId id of the proposal to get
    * @return the proposal as ProposalWithoutVote memory object
    **/
-  function getProposalById(
-    uint256 proposalId
-  ) external view returns (ProposalWithoutVote memory);
+  function getProposalById(uint256 proposalId) external view returns (ProposalWithoutVote memory);
 
   /**
    * @dev Getter of the vote data of a proposal by id
@@ -318,7 +315,11 @@ interface IKyberGovernance {
   function getProposalVoteDataById(uint256 proposalId)
     external
     view
-    returns (uint256, uint256[] memory, string[] memory);
+    returns (
+      uint256,
+      uint256[] memory,
+      string[] memory
+    );
 
   /**
    * @dev Getter of the Vote of a voter about a proposal
@@ -337,6 +338,5 @@ interface IKyberGovernance {
    * @param proposalId id of the proposal
    * @return The current state if the proposal
    **/
-  function getProposalState(uint256 proposalId)
-    external view returns (ProposalState);
+  function getProposalState(uint256 proposalId) external view returns (ProposalState);
 }
