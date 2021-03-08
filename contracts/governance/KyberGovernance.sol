@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 import {IKyberGovernance} from '../interfaces/IKyberGovernance.sol';
@@ -276,7 +275,8 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
       'invalid state to queue'
     );
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
-    require(proposal.proposalType == ProposalType.Binary, 'only binary proposal');
+    // generic proposal does not have Succeeded state
+    assert(proposal.proposalType == ProposalType.Binary);
     uint256 executionTime = block.timestamp.add(proposal.executor.getDelay());
     for (uint256 i = 0; i < proposal.targets.length; i++) {
       _queueOrRevert(
@@ -302,7 +302,8 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
     require(proposalId < _proposalsCount, 'invalid proposal id');
     require(getProposalState(proposalId) == ProposalState.Queued, 'only queued proposals');
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
-    require(proposal.proposalType == ProposalType.Binary, 'only binary proposal');
+    // generic proposal does not have Queued state
+    assert(proposal.proposalType == ProposalType.Binary);
     proposal.executed = true;
     for (uint256 i = 0; i < proposal.targets.length; i++) {
       proposal.executor.executeTransaction{value: proposal.weiValues[i]}(
@@ -535,7 +536,7 @@ contract KyberGovernance is IKyberGovernance, PermissionAdmin {
    * @return The current state if the proposal
    **/
   function getProposalState(uint256 proposalId) public override view returns (ProposalState) {
-    require(_proposalsCount >= proposalId, 'invalid proposal id');
+    require(proposalId < _proposalsCount, 'invalid proposal id');
     ProposalWithoutVote storage proposal = _proposals[proposalId].proposalData;
     if (proposal.canceled) {
       return ProposalState.Canceled;

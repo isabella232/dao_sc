@@ -32,14 +32,14 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
     bool _isQueueRevert,
     bool _isExecuteRevert,
     bool _isCancelRevert,
-    bool _isCheckActionPassed,
+    bool _isCheckActionFailed,
     bool _isCheckProposalGracePeriodPassed,
     uint256 _delay
   ) external {
     isQueueTransactionRevert = _isQueueRevert;
     isExecuteTransactionRevert = _isExecuteRevert;
     isCancelTransactionRevert = _isCancelRevert;
-    isCheckActionHashedFailed = _isCheckActionPassed;
+    isCheckActionHashedFailed = _isCheckActionFailed;
     isCheckProposalOverGracePeriodFailed = _isCheckProposalGracePeriodPassed;
     delay = _delay;
   }
@@ -96,8 +96,8 @@ contract MockExecutorWithTimelock is IExecutorWithTimelock, MockProposalValidato
     data;
     executionTime;
     withDelegatecall;
-    if (isQueueTransactionRevert) revert();
-    isQueueTransactionRevert = false; // silence the warning
+    if (isExecuteTransactionRevert) revert();
+    isExecuteTransactionRevert = false; // silence the warning
     return new bytes(0);
   }
 
