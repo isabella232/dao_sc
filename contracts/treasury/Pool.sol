@@ -17,8 +17,6 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
   using SafeERC20 for IERC20Ext;
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  // mapping(address => bool) private _isAuthorizedStrategy;
-  // address[] private _authorizedStrategies;
   EnumerableSet.AddressSet private _authorizedStrategies;
   bool private _isPaused;
 
@@ -45,13 +43,6 @@ contract Pool is IPool, PermissionAdmin, PermissionOperators, Utils {
     for(uint256 i = 0; i < strategies.length; i++) {
       _unauthorizeStrategy(strategies[i]);
     }
-  }
-
-  function replaceStrategy(address oldStrategy, address newStrategy)
-    external override onlyAdmin
-  {
-    _unauthorizeStrategy(oldStrategy);
-    _authorizeStrategy(newStrategy);
   }
 
   function pause() external override onlyOperator {
