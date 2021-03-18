@@ -1,0 +1,10 @@
+{
+  "gnosisWallet": "0xDdF05698718bA8ed1c9abA198d38a825A64D69e2",
+  "governance": "0xef5a1404E312078cd16B7139a2257eD3bb42F787",
+  "executor": "0x2b554Bfb76c5A8dDD85E686DEa06b878EEC8f367",
+  "votingPowerStrategy": "0x7646A525258bc5f6f200A811F8F4e85efB50e025",
+  "contractsToCall": ["0xbe87E5634f9FC7cD3ED88ad58b1462F3C5A7EB5b","0xbe87E5634f9FC7cD3ED88ad58b1462F3C5A7EB5b"],
+  "startTimestamp": 1621221300,
+  "endTimestamp": 1621223700,
+  "link": "https://github.com/KyberNetwork/KIPs/blob/master/KIPs/kip-8.md"
+}
