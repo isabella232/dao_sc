@@ -1,7 +1,7 @@
 require("@nomiclabs/hardhat-truffle5");
 require("@nomiclabs/hardhat-web3");
 require("@nomiclabs/hardhat-etherscan");
-require("hardhat-gas-reporter");
+// require("hardhat-gas-reporter");
 require('solidity-coverage');
 
 require('dotenv').config();
@@ -12,10 +12,10 @@ const {accounts} = require('./test-wallets.js');
 module.exports = {
   defaultNetwork: 'hardhat',
 
-  gasReporter: {
-    currency: 'USD',
-    gasPrice: 100
-  },
+  // gasReporter: {
+  //   currency: 'USD',
+  //   gasPrice: 100
+  // },
 
   networks: {
     develop: {
