@@ -22,8 +22,8 @@ contract('Pool', function (accounts) {
   });
 
   const verifyStrategyData = async (strategies) => {
-    Helper.assertEqual(strategies.length, await pool.getAuthorizedStrategiesLength())
-    for(let i = 0; i < strategies.length; i++) {
+    Helper.assertEqual(strategies.length, await pool.getAuthorizedStrategiesLength());
+    for (let i = 0; i < strategies.length; i++) {
       Helper.assertEqual(true, await pool.isAuthorizedStrategy(strategies[i]));
       Helper.assertEqual(strategies[i], await pool.getAuthorizedStrategyAt(i));
     }
@@ -32,26 +32,17 @@ contract('Pool', function (accounts) {
 
   describe('#constructor tests', async () => {
     it('invalid admin', async () => {
-      await expectRevert(
-        pool = Pool.new(zeroAddress, strategies),
-        'admin 0'
-      );
+      await expectRevert((pool = Pool.new(zeroAddress, strategies)), 'admin 0');
     });
 
     it('invalid strategy', async () => {
       let newStrategies = [zeroAddress, accounts[1]];
-      await expectRevert(
-        pool = Pool.new(admin, newStrategies),
-        'invalid strategy'
-      );
+      await expectRevert((pool = Pool.new(admin, newStrategies)), 'invalid strategy');
     });
 
     it('duplicated strategy', async () => {
       let newStrategies = [accounts[1], accounts[1]];
-      await expectRevert(
-        pool = Pool.new(admin, newStrategies),
-        'only unauthorized strategy'
-      );
+      await expectRevert((pool = Pool.new(admin, newStrategies)), 'only unauthorized strategy');
     });
 
     it('correct init data', async () => {
@@ -67,46 +58,37 @@ contract('Pool', function (accounts) {
       pool = await Pool.new(admin, strategies);
     });
 
-    it('reverts not admin', async() => {
-      await expectRevert(
-        pool.authorizeStrategies([accounts[0]], { from: accounts[0] }),
-        'only admin'
-      );
+    it('reverts not admin', async () => {
+      await expectRevert(pool.authorizeStrategies([accounts[0]], {from: accounts[0]}), 'only admin');
     });
 
     it('reverts invalid strategy', async () => {
-      await expectRevert(
-        pool.authorizeStrategies([zeroAddress], { from: admin }),
-        'invalid strategy'
-      )
+      await expectRevert(pool.authorizeStrategies([zeroAddress], {from: admin}), 'invalid strategy');
     });
 
     it('reverts only unauthorized strategy', async () => {
       let strategies = await pool.getAllAuthorizedStrategies();
       let newStrategies = [accounts[5]];
-      for(let i = 0; i < strategies.length; i++) {
+      for (let i = 0; i < strategies.length; i++) {
         newStrategies.push(strategies[i]);
       }
-      await expectRevert(
-        pool.authorizeStrategies(strategies, { from: admin }),
-        'only unauthorized strategy'
-      )
+      await expectRevert(pool.authorizeStrategies(strategies, {from: admin}), 'only unauthorized strategy');
     });
 
     it('authorize empty array', async () => {
       let curStrategies = await pool.getAllAuthorizedStrategies();
-      await pool.authorizeStrategies([], { from: admin });
+      await pool.authorizeStrategies([], {from: admin});
       await verifyStrategyData(curStrategies);
     });
 
     it('authorize correct data records and events', async () => {
       let curStrategies = await pool.getAllAuthorizedStrategies();
-      await pool.unauthorizeStrategies(strategies, { from: admin });
+      await pool.unauthorizeStrategies(strategies, {from: admin});
       await verifyStrategyData([]);
-      let tx = await pool.authorizeStrategies(curStrategies, { from: admin });
+      let tx = await pool.authorizeStrategies(curStrategies, {from: admin});
 
       await verifyStrategyData(curStrategies);
-      for(let id = 0; id < tx.receipt.logs.length; id++) {
+      for (let id = 0; id < tx.receipt.logs.length; id++) {
         Helper.assertEqual('AuthorizedStrategy', tx.receipt.logs[id].event);
         Helper.assertEqual(curStrategies[id], tx.receipt.logs[id].args[0]);
       }
@@ -118,40 +100,31 @@ contract('Pool', function (accounts) {
       pool = await Pool.new(admin, strategies);
     });
 
-    it('reverts not admin', async() => {
-      await expectRevert(
-        pool.unauthorizeStrategies([accounts[0]], { from: accounts[0] }),
-        'only admin'
-      );
+    it('reverts not admin', async () => {
+      await expectRevert(pool.unauthorizeStrategies([accounts[0]], {from: accounts[0]}), 'only admin');
     });
 
     it('reverts invalid strategy', async () => {
-      await expectRevert(
-        pool.unauthorizeStrategies([zeroAddress], { from: admin }),
-        'invalid strategy'
-      )
+      await expectRevert(pool.unauthorizeStrategies([zeroAddress], {from: admin}), 'invalid strategy');
     });
 
     it('reverts only authorized strategy', async () => {
       let strategies = await pool.getAllAuthorizedStrategies();
-      await pool.unauthorizeStrategies(strategies, { from: admin });
-      await expectRevert(
-        pool.unauthorizeStrategies(strategies, { from: admin }),
-        'only authorized strategy'
-      )
+      await pool.unauthorizeStrategies(strategies, {from: admin});
+      await expectRevert(pool.unauthorizeStrategies(strategies, {from: admin}), 'only authorized strategy');
     });
 
     it('unauthorize empty array', async () => {
       let curStrategies = await pool.getAllAuthorizedStrategies();
-      await pool.unauthorizeStrategies([], { from: admin });
+      await pool.unauthorizeStrategies([], {from: admin});
       await verifyStrategyData(curStrategies);
     });
 
     it('unauthorize correct data records and events', async () => {
       let curStrategies = await pool.getAllAuthorizedStrategies();
-      let tx = await pool.unauthorizeStrategies(curStrategies, { from: admin });
+      let tx = await pool.unauthorizeStrategies(curStrategies, {from: admin});
       await verifyStrategyData([]);
-      for(let id = 0; id < tx.receipt.logs.length; id++) { 
+      for (let id = 0; id < tx.receipt.logs.length; id++) {
         Helper.assertEqual('UnauthorizedStrategy', tx.receipt.logs[id].event);
         Helper.assertEqual(curStrategies[id], tx.receipt.logs[id].args[0]);
       }
@@ -160,53 +133,44 @@ contract('Pool', function (accounts) {
 
   describe('#pause & unpause', async () => {
     it('pause - revert not operator', async () => {
-      await expectRevert(
-        pool.pause({ from: accounts[0] }),
-        'only operator'
-      );
+      await expectRevert(pool.pause({from: accounts[0]}), 'only operator');
     });
 
     it('pause - records data and event', async () => {
-      await pool.addOperator(accounts[0], { from: admin });
-      let tx = await pool.pause({ from: accounts[0] });
+      await pool.addOperator(accounts[0], {from: admin});
+      let tx = await pool.pause({from: accounts[0]});
       expectEvent(tx, 'Paused', {
-        sender: accounts[0]
+        sender: accounts[0],
       });
       Helper.assertEqual(true, await pool.isPaused());
 
       // duplicated action, but still allowed
-      tx = await pool.pause({ from: accounts[0] });
+      tx = await pool.pause({from: accounts[0]});
       expectEvent(tx, 'Paused', {
-        sender: accounts[0]
+        sender: accounts[0],
       });
       Helper.assertEqual(true, await pool.isPaused());
-      await pool.removeOperator(accounts[0], { from: admin });
+      await pool.removeOperator(accounts[0], {from: admin});
     });
 
     it('unpause - revert not admin', async () => {
-      await expectRevert(
-        pool.unpause({ from: accounts[0] }),
-        'only admin'
-      );
-      await pool.addOperator(accounts[0], { from: admin });
-      await expectRevert(
-        pool.unpause({ from: accounts[0] }),
-        'only admin'
-      );
-      await pool.removeOperator(accounts[0], { from: admin });
+      await expectRevert(pool.unpause({from: accounts[0]}), 'only admin');
+      await pool.addOperator(accounts[0], {from: admin});
+      await expectRevert(pool.unpause({from: accounts[0]}), 'only admin');
+      await pool.removeOperator(accounts[0], {from: admin});
     });
 
     it('unpause - records data and event', async () => {
-      let tx = await pool.unpause({ from: admin });
+      let tx = await pool.unpause({from: admin});
       expectEvent(tx, 'Unpaused', {
-        sender: admin
+        sender: admin,
       });
       Helper.assertEqual(false, await pool.isPaused());
 
       // duplicated action, but still allowed
-      tx = await pool.unpause({ from: admin });
+      tx = await pool.unpause({from: admin});
       expectEvent(tx, 'Unpaused', {
-        sender: admin
+        sender: admin,
       });
       Helper.assertEqual(false, await pool.isPaused());
     });
@@ -218,33 +182,30 @@ contract('Pool', function (accounts) {
     });
 
     it('revert - when paused', async () => {
-      await pool.addOperator(accounts[1], { from: admin });
-      await pool.pause({ from: accounts[1] });
+      await pool.addOperator(accounts[1], {from: admin});
+      await pool.pause({from: accounts[1]});
       await expectRevert(
-        pool.withdrawFunds([ethAddress], [new BN(10)], admin, { from: strategies[0] }),
+        pool.withdrawFunds([ethAddress], [new BN(10)], admin, {from: strategies[0]}),
         'only when not paused'
-      )
-      await pool.unpause({ from: admin });
-      await pool.removeOperator(accounts[1], { from: admin });
+      );
+      await pool.unpause({from: admin});
+      await pool.removeOperator(accounts[1], {from: admin});
     });
 
     it('revert - only authorized strategy', async () => {
-      await pool.unpause({ from: admin });
-      await pool.unauthorizeStrategies(strategies, { from: admin });
+      await pool.unpause({from: admin});
+      await pool.unauthorizeStrategies(strategies, {from: admin});
       await expectRevert(
-        pool.withdrawFunds([ethAddress], [new BN(10)], admin, { from: strategies[0] }),
+        pool.withdrawFunds([ethAddress], [new BN(10)], admin, {from: strategies[0]}),
         'not authorized'
       );
-      await pool.authorizeStrategies(strategies, { from: admin });
+      await pool.authorizeStrategies(strategies, {from: admin});
     });
 
     it('revert - invalid lengths for tokens and amounts', async () => {
+      await expectRevert(pool.withdrawFunds([ethAddress], [], admin, {from: strategies[0]}), 'invalid lengths');
       await expectRevert(
-        pool.withdrawFunds([ethAddress], [], admin, { from: strategies[0] }),
-        'invalid lengths'
-      );
-      await expectRevert(
-        pool.withdrawFunds([ethAddress], [new BN(1), new BN(2)], admin, { from: strategies[0] }),
+        pool.withdrawFunds([ethAddress], [new BN(1), new BN(2)], admin, {from: strategies[0]}),
         'invalid lengths'
       );
     });
@@ -253,7 +214,7 @@ contract('Pool', function (accounts) {
       let contract = await NonePayableContract.new();
       await Helper.sendEtherWithPromise(accounts[0], pool.address, new BN(1));
       await expectRevert(
-        pool.withdrawFunds([ethAddress], [new BN(1)], contract.address, { from: strategies[0] }),
+        pool.withdrawFunds([ethAddress], [new BN(1)], contract.address, {from: strategies[0]}),
         'transfer eth failed'
       );
     });
@@ -261,12 +222,7 @@ contract('Pool', function (accounts) {
     it('revert - balance not enough', async () => {
       let ethBalance = await Helper.getBalancePromise(pool.address);
       await expectRevert(
-        pool.withdrawFunds(
-          [ethAddress],
-          [ethBalance.add(new BN(1))],
-          admin,
-          { from: strategies[0] }
-        ),
+        pool.withdrawFunds([ethAddress], [ethBalance.add(new BN(1))], admin, {from: strategies[0]}),
         'transfer eth failed'
       );
       let token = await Token.new();
@@ -274,13 +230,8 @@ contract('Pool', function (accounts) {
       await token.transfer(pool.address, tokenAmount);
 
       await expectRevert.unspecified(
-        pool.withdrawFunds(
-          [ethAddress],
-          [ethBalance.add(new BN(1))],
-          admin,
-          { from: strategies[0] }
-        ),
-      )
+        pool.withdrawFunds([ethAddress], [ethBalance.add(new BN(1))], admin, {from: strategies[0]})
+      );
     });
 
     it('correct balances changed', async () => {
@@ -300,27 +251,16 @@ contract('Pool', function (accounts) {
       tokenAmount = await token.balanceOf(pool.address);
       tokenAmount = tokenAmount.div(new BN(3));
 
-      let tx = await pool.withdrawFunds(
-        [ethAddress, token.address],
-        [ethAmount, tokenAmount],
-        recipient,
-        { from: strategies[0] }
-      );
+      let tx = await pool.withdrawFunds([ethAddress, token.address], [ethAmount, tokenAmount], recipient, {
+        from: strategies[0],
+      });
 
-      Helper.assertEqual(
-        ethBalRecipientBefore.add(ethAmount), await Helper.getBalancePromise(recipient)
-      );
-      Helper.assertEqual(
-        tokenBalRecipientBefore.add(tokenAmount), await token.balanceOf(recipient)
-      );
-      Helper.assertEqual(
-        ethBalPoolBefore.sub(ethAmount), await Helper.getBalancePromise(pool.address)
-      );
-      Helper.assertEqual(
-        tokenBalPoolBefore.sub(tokenAmount), await token.balanceOf(pool.address)
-      );
+      Helper.assertEqual(ethBalRecipientBefore.add(ethAmount), await Helper.getBalancePromise(recipient));
+      Helper.assertEqual(tokenBalRecipientBefore.add(tokenAmount), await token.balanceOf(recipient));
+      Helper.assertEqual(ethBalPoolBefore.sub(ethAmount), await Helper.getBalancePromise(pool.address));
+      Helper.assertEqual(tokenBalPoolBefore.sub(tokenAmount), await token.balanceOf(pool.address));
       let id = 0;
-      for(let i = 0; i < tx.receipt.logs.length; i++) {
+      for (let i = 0; i < tx.receipt.logs.length; i++) {
         if (tx.receipt.logs[i].event == 'WithdrawToken') {
           if (id == 0) {
             // withdraw eth event

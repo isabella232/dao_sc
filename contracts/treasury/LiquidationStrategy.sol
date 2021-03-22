@@ -12,7 +12,7 @@ import {ILiquidationStrategy} from '../interfaces/liquidation/ILiquidationStrate
 import {ILiquidationCallback} from '../interfaces/liquidation/ILiquidationCallback.sol';
 import {IPool} from '../interfaces/liquidation/IPool.sol';
 
-contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, ReentrancyGuard {
+abstract contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, ReentrancyGuard {
 
   using SafeERC20 for IERC20Ext;
   using SafeMath for uint256;
@@ -46,11 +46,6 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
   event WhitelistedLiquidatorUpdated(address indexed liquidator, bool indexed isAdd);
   event WhitelistedLiquidatorsEnabled(bool indexed isEnabled);
 
-  modifier onlyWhenLiquidationEnabled() {
-    require(isLiquidationEnabled(), 'only when liquidation enabled');
-    _;
-  }
-
   constructor(
     address admin,
     address treasuryPoolAddress,
@@ -67,6 +62,8 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
     // default not using whitelisted liquidator mechanism
     _setWhitelistedLiquidatorsEnabled(false);
   }
+
+  receive() external payable {}
 
   function updateLiquidationSchedule(
     uint128 startTime,
@@ -126,9 +123,10 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
     uint256 minReturn,
     bytes memory txData
   )
-    internal virtual onlyWhenLiquidationEnabled nonReentrant
+    internal virtual nonReentrant
     returns (uint256 destAmount)
   {
+    require(isLiquidationEnabled(), 'only when liquidation enabled');
     // Check whitelist tokens
     require(
       isWhitelistedToken(address(dest)),
@@ -237,6 +235,7 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
   {
     return _isWhitelistedLiquidatorEnabled;
   }
+
   function isLiquidationEnabled() public view override returns (bool) {
     return isLiquidationEnabledAt(block.timestamp);
   }
@@ -288,7 +287,7 @@ contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, Utils, Re
     uint64 _repeatedPeriod,
     uint64 _duration
   ) internal {
-    // TODO: Validate
+    require(_repeatedPeriod > 0, 'repeatedPeriod == 0');
     _liquidationSchedule = LiquidationSchedule({
         startTime: _startTime,
         repeatedPeriod: _repeatedPeriod,
