@@ -1,11 +1,13 @@
 const accounts = require(`./test-wallets.js`).accounts;
 
 module.exports = {
-  skipFiles: ['./mocks', './interfaces', './misc', './dependencies'],
   mocha: {
-    enableTimeouts: false,
+    enableTimeouts: false
   },
   providerOptions: {
-    accounts,
+    default_balance_ether: 100000000000000,
+    accounts: accounts
   },
+  skipFiles: ['./mock', './interfaces', './misc'],
+  istanbulReporter: ['html', 'json']
 };
