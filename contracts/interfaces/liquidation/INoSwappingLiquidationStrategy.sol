@@ -5,13 +5,13 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 
 interface INoSwappingLiquidationStrategy {
-  event FeePoolSet(address indexed feePool);
   event TreasuryPoolSet(address indexed treasuryPool);
+  event RewardPoolSet(address indexed rewardPool);
   event Liquidated(address sender, IERC20Ext[] sources, uint256[] amounts);
 
-  function updateFeePool(address pool) external;
-  function updateTreasuryPool(address payable pool) external;
+  function updateTreasuryPool(address pool) external;
+  function updateRewardPool(address payable pool) external;
   function liquidate(IERC20Ext[] calldata sources, uint256[] calldata amounts) external;
-  function feePool() external view returns (address);
   function treasuryPool() external view returns (address);
+  function rewardPool() external view returns (address);
 }
