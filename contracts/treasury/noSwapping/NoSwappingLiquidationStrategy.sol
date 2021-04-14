@@ -8,29 +8,29 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {IPool} from '../../interfaces/liquidation/IPool.sol';
 import {INoSwappingLiquidationStrategy} from '../../interfaces/liquidation/INoSwappingLiquidationStrategy.sol';
 
-/// @dev The simplest liquidation strategy which requests funds from FeePool and
+/// @dev The simplest liquidation strategy which requests funds from TreasuryPool and
 /// 	transfer directly to treasury pool, no actual liquidation happens
 contract NoSwappingLiquidationStrategy is PermissionAdmin, PermissionOperators,
 	INoSwappingLiquidationStrategy {
 
-  IPool private _feePool;
-  address payable private _treasuryPool;
+  IPool private _treasuryPool;
+  address payable private _rewardPool;
 
   constructor(
     address admin,
-    address feePoolAddress,
-    address payable treasuryPoolAddress
+    address treasuryPoolAddress,
+    address payable rewardPoolAddress
   ) PermissionAdmin(admin) {
-    _setFeePool(feePoolAddress);
     _setTreasuryPool(treasuryPoolAddress);
+    _setRewardPool(rewardPoolAddress);
   }
 
-  function updateFeePool(address pool) external override onlyAdmin {
-    _setFeePool(pool);
-  }
-
-  function updateTreasuryPool(address payable pool) external override onlyAdmin {
+  function updateTreasuryPool(address pool) external override onlyAdmin {
     _setTreasuryPool(pool);
+  }
+
+  function updateRewardPool(address payable pool) external override onlyAdmin {
+    _setRewardPool(pool);
   }
 
   /** @dev Fast forward tokens from fee pool to treasury pool
@@ -41,27 +41,27 @@ contract NoSwappingLiquidationStrategy is PermissionAdmin, PermissionOperators,
 		external override
 	{
 		// check for sources and amounts length will be done in fee pool
-		_feePool.withdrawFunds(sources, amounts, _treasuryPool);
+		_treasuryPool.withdrawFunds(sources, amounts, _rewardPool);
 		emit Liquidated(msg.sender, sources, amounts);
 	}
 
-  function feePool() external override view returns (address) {
-    return address(_feePool);
-  }
-
   function treasuryPool() external override view returns (address) {
-    return _treasuryPool;
+    return address(_treasuryPool);
   }
 
-  function _setFeePool(address _pool) internal {
-    require(_pool != address(0), 'invalid fee pool');
-    _feePool = IPool(_pool);
-    emit FeePoolSet(_pool);
+  function rewardPool() external override view returns (address) {
+    return _rewardPool;
   }
 
-  function _setTreasuryPool(address payable _pool) internal {
+  function _setTreasuryPool(address _pool) internal {
     require(_pool != address(0), 'invalid treasury pool');
-    _treasuryPool = _pool;
+    _treasuryPool = IPool(_pool);
     emit TreasuryPoolSet(_pool);
+  }
+
+  function _setRewardPool(address payable _pool) internal {
+    require(_pool != address(0), 'invalid reward pool');
+    _rewardPool = _pool;
+    emit RewardPoolSet(_pool);
   }
 }

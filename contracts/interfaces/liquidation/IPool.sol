@@ -21,7 +21,6 @@ interface IPool {
   function unpause() external;
   function authorizeStrategies(address[] calldata strategies) external;
   function unauthorizeStrategies(address[] calldata strategies) external;
-  function replaceStrategy(address oldStrategy, address strategies) external;
   function withdrawFunds(
     IERC20Ext[] calldata tokens,
     uint256[] calldata amounts,
