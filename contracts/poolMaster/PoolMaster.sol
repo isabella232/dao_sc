@@ -3,8 +3,9 @@ pragma solidity 0.7.6;
 
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
-import '@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol';
-import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import {ERC20} from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
+import {ERC20Burnable} from '@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol';
+import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 
