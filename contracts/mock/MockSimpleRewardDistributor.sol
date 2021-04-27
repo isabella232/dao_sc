@@ -4,7 +4,11 @@ pragma solidity 0.7.6;
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 contract MockSimpleRewardDistributor {
-  IERC20Ext internal constant ETH_TOKEN_ADDRESS = IERC20Ext(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+  IERC20Ext internal constant ETH_TOKEN_ADDRESS = IERC20Ext(
+    0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
+  );
+
+  receive() external payable {}
 
   function claim(
     uint256 cycle,
@@ -13,10 +17,11 @@ contract MockSimpleRewardDistributor {
     IERC20Ext[] calldata tokens,
     uint256[] calldata cumulativeAmounts,
     bytes32[] calldata merkleProof
-  ) external {
+  ) external returns (uint256[] memory claimAmounts) {
     cycle;
     index;
     merkleProof;
+    claimAmounts = cumulativeAmounts;
     // claim each token
     for (uint256 i = 0; i < tokens.length; i++) {
       uint256 claimAmount = cumulativeAmounts[i];

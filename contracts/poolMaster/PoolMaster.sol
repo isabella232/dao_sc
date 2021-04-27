@@ -50,13 +50,15 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   IKyberStaking public immutable kyberStaking;
   IRewardsDistributor public rewardsDistributor;
   IKyberGovernance public kyberGovernance;
-  IERC20Ext public immutable newKnc;
+  IERC20Ext public newKnc;
   IERC20Ext private oldKnc;
 
   modifier onlyAdminOrOperator() {
     require(msg.sender == admin || isOperator(msg.sender), 'only admin or operator');
     _;
   }
+
+  receive() external payable {}
 
   constructor(
     string memory _name,
@@ -65,17 +67,16 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
     IKyberStaking _kyberStaking,
     IKyberGovernance _kyberGovernance,
     IRewardsDistributor _rewardsDistributor,
-    IERC20Ext _newKnc,
     uint256 _adminFeeBps
   ) ERC20(_name, _symbol) PermissionAdmin(msg.sender) {
     kyberProxy = _kyberProxy;
     kyberStaking = _kyberStaking;
     kyberGovernance = _kyberGovernance;
     rewardsDistributor = _rewardsDistributor;
-    newKnc = _newKnc;
-    oldKnc = IERC20Ext(INewKNC(address(_newKnc)).oldKNC());
-    oldKnc.safeApprove(address(_newKnc), MAX_UINT);
-    _newKnc.safeApprove(address(_kyberStaking), MAX_UINT);
+    newKnc = IERC20Ext(address(_kyberStaking.kncToken()));
+    oldKnc = IERC20Ext(INewKNC(address(newKnc)).oldKNC());
+    oldKnc.safeApprove(address(newKnc), MAX_UINT);
+    newKnc.safeApprove(address(_kyberStaking), MAX_UINT);
     _changeAdminFee(_adminFeeBps);
   }
 
@@ -205,14 +206,14 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
    * @notice Called by admin on deployment for KNC
    * @dev Approves Kyber Proxy contract to trade KNC
    * @param Token to approve on proxy contract
-   * @param Pass _reset as true if resetting allowance to zero
+   * @param Pass _giveAllowance as true to give max allowance, otherwise resets to zero
    */
-  function approveKyberProxyContract(IERC20Ext token, bool reset) external onlyAdminOrOperator {
-    uint256 amount = reset ? 0 : MAX_UINT;
+  function approveKyberProxyContract(IERC20Ext token, bool giveAllowance) external onlyAdminOrOperator {
+    uint256 amount = giveAllowance ? MAX_UINT : 0;
     token.safeApprove(address(kyberProxy), amount);
   }
 
-  function withdrawAdminFee() external onlyAdminOrOperator {
+  function withdrawAdminFee() external {
     uint256 fee = withdrawableAdminFees;
     withdrawableAdminFees = 0;
     newKnc.safeTransfer(admin, fee);

@@ -16,6 +16,7 @@ contract MockSimpleKyberProxy {
     token;
     minConversionRate;
     knc.transfer(msg.sender, msg.value);
+    return msg.value;
   }
 
   // swap token to knc
@@ -30,6 +31,7 @@ contract MockSimpleKyberProxy {
     minConversionRate;
     src.transferFrom(msg.sender, address(this), srcAmount);
     knc.transfer(msg.sender, srcAmount);
+    return srcAmount;
   }
 
   function setKncAddress(IERC20Ext _knc) public {
