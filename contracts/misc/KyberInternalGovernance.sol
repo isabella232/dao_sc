@@ -13,15 +13,14 @@ import {IRewardsDistributor} from '../interfaces/rewardDistribution/IRewardsDist
 
 /**
     Internal contracts to participate in KyberDAO and claim rewards for Kyber
+    Only accept external delegation, all reward will be transferred
 */
-contract KyberInternalGovernance is PermissionAdmin, PermissionOperators, Utils {
+contract KyberInternalGovernance is PermissionOperators, Utils {
     using SafeERC20 for IERC20Ext;
 
     address payable public rewardRecipient;
     IKyberGovernance public governance;
     IRewardsDistributor public rewardDistributor;
-
-    event ClaimedRewards(uint256 cycle, uint256 index, IERC20Ext[] tokens, uint256[] claimAmounts);
 
     constructor(
         address _admin,
@@ -87,8 +86,6 @@ contract KyberInternalGovernance is PermissionAdmin, PermissionOperators, Utils 
                 address(this).balance : tokens[i].balanceOf(address(this));
             if (bal > 0) _transferToken(tokens[i], bal);
         }
-        
-        emit ClaimedRewards(cycle, index, tokens, claimAmounts);
     }
 
     function updateRewardRecipient(address payable _newRecipient)
