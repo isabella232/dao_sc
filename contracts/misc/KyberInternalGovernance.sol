@@ -5,7 +5,6 @@ pragma solidity 0.7.6;
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
 import {PermissionOperators} from '@kyber.network/utils-sc/contracts/PermissionOperators.sol';
-import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
 import {IRewardsDistributor} from '../interfaces/rewardDistribution/IRewardsDistributor.sol';
@@ -15,8 +14,10 @@ import {IRewardsDistributor} from '../interfaces/rewardDistribution/IRewardsDist
     Internal contracts to participate in KyberDAO and claim rewards for Kyber
     Only accept external delegation, all reward will be transferred
 */
-contract KyberInternalGovernance is PermissionOperators, Utils {
+contract KyberInternalGovernance is PermissionOperators {
     using SafeERC20 for IERC20Ext;
+
+    IERC20Ext public constant ETH_TOKEN_ADDRESS = IERC20Ext(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     address payable public rewardRecipient;
     IKyberGovernance public governance;
