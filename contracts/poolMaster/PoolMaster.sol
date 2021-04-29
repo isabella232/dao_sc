@@ -7,7 +7,10 @@ import {ERC20} from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import {ERC20Burnable} from '@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
-import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
+import {
+  PermissionAdmin,
+  PermissionOperators
+} from '@kyber.network/utils-sc/contracts/PermissionOperators.sol';
 
 import {IKyberStaking} from '../interfaces/staking/IKyberStaking.sol';
 import {IRewardsDistributor} from '../interfaces/rewardDistribution/IRewardsDistributor.sol';
@@ -15,6 +18,7 @@ import {IKyberGovernance} from '../interfaces/governance/IKyberGovernance.sol';
 
 interface INewKNC {
   function mintWithOldKnc(uint256 amount) external;
+
   function oldKNC() external view returns (address);
 }
 
@@ -32,7 +36,7 @@ interface IKyberNetworkProxy {
   ) external returns (uint256 destAmount);
 }
 
-contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
+contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ERC20Burnable {
   using SafeMath for uint256;
   using SafeERC20 for IERC20Ext;
 
@@ -40,11 +44,9 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   uint256 internal constant PRECISION = (10**18);
   uint256 internal constant BPS = 10000;
   uint256 internal constant INITIAL_SUPPLY_MULTIPLIER = 10;
-  uint256 internal constant MAX_UINT = 2**256 - 1;
+  uint256 internal constant MAX_UINT = type(uint256).max;
   uint256 public adminFeeBps;
   uint256 public withdrawableAdminFees;
-
-  mapping(address => bool) internal operators;
 
   IKyberNetworkProxy public kyberProxy;
   IKyberStaking public immutable kyberStaking;
@@ -52,11 +54,6 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   IKyberGovernance public kyberGovernance;
   IERC20Ext public newKnc;
   IERC20Ext private oldKnc;
-
-  modifier onlyAdminOrOperator() {
-    require(msg.sender == admin || isOperator(msg.sender), 'only admin or operator');
-    _;
-  }
 
   receive() external payable {}
 
@@ -96,14 +93,6 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
     _changeAdminFee(_adminFeeBps);
   }
 
-  function addOperator(address newOperator) external onlyAdmin {
-    operators[newOperator] = true;
-  }
-
-  function removeOperator(address newOperator) external onlyAdmin {
-    operators[newOperator] = false;
-  }
-
   function depositWithOldKnc(uint256 tokenWei) external {
     oldKnc.safeTransferFrom(msg.sender, address(this), tokenWei);
     INewKNC(address(newKnc)).mintWithOldKnc(tokenWei);
@@ -133,11 +122,17 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   /*
    * @notice Vote on KyberDAO campaigns
    * @dev Admin calls with relevant params for each campaign in an epoch
-   * @param proposalId: DAO proposalId
-   * @param optionBitMask: voting option
+   * @param proposalIds: DAO proposalIds
+   * @param optionBitMasks: corresponding voting options
    */
-  function vote(uint256 proposalId, uint256 optionBitMask) external onlyAdminOrOperator {
-    kyberGovernance.submitVote(proposalId, optionBitMask);
+  function vote(uint256[] calldata proposalIds, uint256[] calldata optionBitMasks)
+    external
+    onlyOperator
+  {
+    require(proposalIds.length == optionBitMasks.length, 'invalid length');
+    for (uint256 i = 0; i < proposalIds.length; i++) {
+      kyberGovernance.submitVote(proposalIds[i], optionBitMasks[i]);
+    }
   }
 
   /*
@@ -156,15 +151,8 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
     IERC20Ext[] calldata tokens,
     uint256[] calldata cumulativeAmounts,
     bytes32[] calldata merkleProof
-  ) external onlyAdminOrOperator {
-    rewardsDistributor.claim(
-      cycle,
-      index,
-      address(this),
-      tokens,
-      cumulativeAmounts,
-      merkleProof
-    );
+  ) external onlyOperator {
+    rewardsDistributor.claim(cycle, index, address(this), tokens, cumulativeAmounts, merkleProof);
 
     for (uint256 i = 0; i < tokens.length; i++) {
       if (tokens[i] == newKnc) {
@@ -180,10 +168,10 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
    * @dev Admin or operator calls with relevant params
    * @param tokens - ETH / ERC20 tokens to be liquidated to KNC
    * @param minRates - kyberProxy.getExpectedRate(eth/token => knc)
-  */
+   */
   function liquidateTokensToKnc(IERC20Ext[] calldata tokens, uint256[] calldata minRates)
     external
-    onlyAdminOrOperator
+    onlyOperator
   {
     require(tokens.length == minRates.length, 'unequal lengths');
     for (uint256 i = 0; i < tokens.length; i++) {
@@ -208,12 +196,13 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
    * @param Token to approve on proxy contract
    * @param Pass _giveAllowance as true to give max allowance, otherwise resets to zero
    */
-  function approveKyberProxyContract(IERC20Ext token, bool giveAllowance) external onlyAdminOrOperator {
+  function approveKyberProxyContract(IERC20Ext token, bool giveAllowance) external onlyOperator {
+    require(token != newKnc, 'knc not allowed');
     uint256 amount = giveAllowance ? MAX_UINT : 0;
     token.safeApprove(address(kyberProxy), amount);
   }
 
-  function withdrawAdminFee() external {
+  function withdrawAdminFee() external onlyOperator {
     uint256 fee = withdrawableAdminFees;
     withdrawableAdminFees = 0;
     newKnc.safeTransfer(admin, fee);
@@ -233,10 +222,6 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
     return newKnc.balanceOf(address(this)).sub(withdrawableAdminFees);
   }
 
-  function isOperator(address operator) public view returns (bool) {
-    return operators[operator];
-  }
-
   function _changeAdminFee(uint256 _adminFeeBps) internal {
     require(_adminFeeBps <= BPS, 'exceed 100%');
     adminFeeBps = _adminFeeBps;
@@ -254,7 +239,7 @@ contract PoolMaster is PermissionAdmin, ReentrancyGuard, ERC20Burnable {
   /*
    * @notice Calculate and stake new KNC to staking contract
    * then mints appropriate amount to user
-  */
+   */
   function _deposit() internal {
     uint256 balanceBefore = getLatestStake();
 

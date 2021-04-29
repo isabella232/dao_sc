@@ -129,23 +129,6 @@ contract('PoolMaster', function () {
     Helper.assertEqual((await poolMaster.adminFeeBps()).toString(), 15);
   });
 
-  it('should allow addition of operators by admin only', async () => {
-    await expectRevert(poolMaster.connect(operator).addOperator(operator.address), 'only admin');
-    await expectRevert(poolMaster.connect(user).addOperator(operator.address), 'only admin');
-
-    await poolMaster.connect(admin).addOperator(operator.address);
-    assert.isTrue(await poolMaster.isOperator(operator.address));
-  });
-
-  it('should allow removal of operators by admin only', async () => {
-    await poolMaster.connect(admin).addOperator(operator.address);
-    await expectRevert(poolMaster.connect(operator).removeOperator(operator.address), 'only admin');
-    await expectRevert(poolMaster.connect(user).removeOperator(operator.address), 'only admin');
-
-    await poolMaster.connect(admin).removeOperator(operator.address);
-    assert.isFalse(await poolMaster.isOperator(operator.address));
-  });
-
   it('should allow for staking with old KNC', async () => {
     let tokenAmount = 1000;
     await oldKnc.connect(user).approve(poolMaster.address, MAX_UINT);
@@ -180,20 +163,28 @@ contract('PoolMaster', function () {
     Helper.assertGreater((await poolMaster.balanceOf(user.address)).toString(), currentPKNCBal.toString());
   });
 
-  it('should be able to vote by admin or operator only', async () => {
-    await expectRevert(poolMaster.connect(user).vote(1, 1), 'only admin or operator');
+  it('should be able to vote by operator only', async () => {
+    await expectRevert(poolMaster.connect(user).vote([1], [1]), 'only operator');
     await poolMaster.connect(admin).addOperator(operator.address);
-    await poolMaster.connect(admin).vote(1, 1);
-    await poolMaster.connect(operator).vote(1, 1);
+    await poolMaster.connect(operator).vote([1], [1]);
+    await poolMaster.connect(operator).vote([1, 2, 3], [1, 2, 3]);
   });
 
-  it('should be able to claim multiple tokens and restake KNC rewards by admin or operator', async () => {
+  it('should revert for incorrect lengths of proposal ids or bitmasks', async () => {
+    await poolMaster.connect(admin).addOperator(operator.address);
+    await expectRevert(poolMaster.connect(operator).vote([1], []), 'invalid length');
+    await expectRevert(poolMaster.connect(operator).vote([], [1]), 'invalid length');
+    await expectRevert(poolMaster.connect(operator).vote([1, 2], [1]), 'invalid length');
+    await expectRevert(poolMaster.connect(operator).vote([1], [2, 1]), 'invalid length');
+  });
+
+  it('should be able to claim multiple tokens and restake KNC rewards by operator', async () => {
     let initialAdminFee = await poolMaster.withdrawableAdminFees();
     let initialEthBal = await ethers.provider.getBalance(poolMaster.address);
     let initialKncStake = await poolMaster.getLatestStake();
     await expectRevert(
       poolMaster.connect(user).claimReward(1, 1, [ethAddress, newKnc.address], [1000, 1000], [ZERO_BYTES]),
-      'only admin or operator'
+      'only operator'
     );
 
     await poolMaster.connect(admin).addOperator(operator.address);
@@ -210,7 +201,7 @@ contract('PoolMaster', function () {
     initialEthBal = ethBal;
     initialKncStake = kncStake;
 
-    await poolMaster.connect(admin).claimReward(1, 1, [ethAddress, newKnc.address], [1000, 1000], [ZERO_BYTES]);
+    await poolMaster.connect(operator).claimReward(1, 1, [ethAddress, newKnc.address], [1000, 1000], [ZERO_BYTES]);
 
     adminFee = await poolMaster.withdrawableAdminFees();
     ethBal = await ethers.provider.getBalance(poolMaster.address);
@@ -220,23 +211,29 @@ contract('PoolMaster', function () {
     Helper.assertGreater(kncStake.toString(), initialKncStake.toString());
   });
 
-  it('should have pool master give token allowance to proxy by the admin or operator', async () => {
-    await expectRevert(
-      poolMaster.connect(user).approveKyberProxyContract(dai.address, true),
-      'only admin or operator'
-    );
-    await expectRevert(
-      poolMaster.connect(operator).approveKyberProxyContract(dai.address, true),
-      'only admin or operator'
-    );
+  it('should have pool master give token allowance to proxy by the operator', async () => {
+    await expectRevert(poolMaster.connect(user).approveKyberProxyContract(dai.address, true), 'only operator');
+    await expectRevert(poolMaster.connect(operator).approveKyberProxyContract(dai.address, true), 'only operator');
     await poolMaster.connect(admin).addOperator(operator.address);
     await poolMaster.connect(operator).approveKyberProxyContract(dai.address, true);
     Helper.assertEqual(MAX_UINT.toString(), (await dai.allowance(poolMaster.address, kyberProxy.address)).toString());
-    await poolMaster.connect(admin).approveKyberProxyContract(dai.address, false);
+    await poolMaster.connect(operator).approveKyberProxyContract(dai.address, false);
     Helper.assertEqual(ZERO.toString(), (await dai.allowance(poolMaster.address, kyberProxy.address)).toString());
   });
 
-  it('should be able to liquidate rewards to KNC and re-stake by admin or operator', async () => {
+  it('should revert attempts to give new KNC allowance to kyber proxy', async () => {
+    await poolMaster.connect(admin).addOperator(operator.address);
+    await expectRevert(
+      poolMaster.connect(operator).approveKyberProxyContract(newKnc.address, true),
+      'knc not allowed'
+    );
+    await expectRevert(
+      poolMaster.connect(operator).approveKyberProxyContract(newKnc.address, false),
+      'knc not allowed'
+    );
+  });
+
+  it('should be able to liquidate rewards to KNC and re-stake by operator', async () => {
     await poolMaster.connect(admin).addOperator(operator.address);
     // send dai, eth and knc to pool master
     let tokenAmount = precisionUnits.mul(new BN.from(2));
@@ -244,7 +241,7 @@ contract('PoolMaster', function () {
     await admin.sendTransaction({to: poolMaster.address, value: tokenAmount});
     await dai.transfer(poolMaster.address, tokenAmount);
 
-    await expectRevert(poolMaster.connect(user).liquidateTokensToKnc([dai.address], [ZERO]), 'only admin or operator');
+    await expectRevert(poolMaster.connect(user).liquidateTokensToKnc([dai.address], [ZERO]), 'only operator');
 
     let initialAdminFee = await poolMaster.withdrawableAdminFees();
     let initialKncStake = await poolMaster.getLatestStake();
@@ -261,7 +258,7 @@ contract('PoolMaster', function () {
 
     // liquidate DAI
     await poolMaster.connect(operator).approveKyberProxyContract(dai.address, true);
-    await poolMaster.connect(admin).liquidateTokensToKnc([dai.address], [ZERO]);
+    await poolMaster.connect(operator).liquidateTokensToKnc([dai.address], [ZERO]);
     adminFee = await poolMaster.withdrawableAdminFees();
     kncStake = await poolMaster.getLatestStake();
     Helper.assertGreater(adminFee.toString(), initialAdminFee.toString());
@@ -269,12 +266,14 @@ contract('PoolMaster', function () {
     Helper.assertEqual((await dai.balanceOf(poolMaster.address)).toString(), ZERO.toString());
   });
 
-  it('should withdraw admin fee by anyone to admin', async () => {
+  it('should withdraw admin fee by operator only to admin', async () => {
     let initialKncBal = await newKnc.balanceOf(admin.address);
     await poolMaster.connect(admin).addOperator(operator.address);
     await poolMaster.connect(operator).claimReward(1, 1, [newKnc.address], [1000], [ZERO_BYTES]);
     let adminFee = await poolMaster.withdrawableAdminFees();
-    await poolMaster.withdrawAdminFee();
+
+    await expectRevert(poolMaster.withdrawAdminFee(), 'only operator');
+    await poolMaster.connect(operator).withdrawAdminFee();
 
     Helper.assertEqual((await newKnc.balanceOf(admin.address)).toString(), initialKncBal.add(adminFee).toString());
     Helper.assertEqual((await poolMaster.withdrawableAdminFees()).toString(), ZERO.toString());
@@ -313,7 +312,7 @@ contract('PoolMaster', function () {
     userKncBalBefore = await newKnc.balanceOf(user.address);
 
     // after liquidation, if user withdraw, should obtain more KNC than stake
-    await poolMaster.approveKyberProxyContract(dai.address, true);
+    await poolMaster.connect(operator).approveKyberProxyContract(dai.address, true);
     await poolMaster.connect(operator).liquidateTokensToKnc([ethAddress, dai.address], [ZERO, ZERO]);
     await poolMaster.connect(user).withdraw(await poolMaster.balanceOf(user.address));
     userKncBalAfter = await newKnc.balanceOf(user.address);
