@@ -10,8 +10,13 @@ let user;
 
 let ZERO;
 let MAX_UINT;
+let BPS;
+let BPS_PLUS_ONE;
 let ZERO_BYTES;
 let ethAddress = Helper.ethAddress;
+let mintFeeBps;
+let claimFeeBps;
+let burnFeeBps;
 
 let oldKnc;
 let newKnc;
@@ -33,7 +38,12 @@ contract('PoolMaster', function () {
     MAX_UINT = ethers.constants.MaxUint256;
     ZERO_BYTES = ethers.constants.HashZero;
     ZERO = ethers.constants.Zero;
+    BPS = new BN.from(10000);
+    BPS_PLUS_ONE = BPS.add(ethers.constants.One);
     precisionUnits = new BN.from(10).pow(new BN.from(18));
+    mintFeeBps = ZERO;
+    claimFeeBps = new BN.from(5);
+    burnFeeBps = new BN.from(10);
 
     let Token = await ethers.getContractFactory('KyberNetworkTokenV2');
     oldKnc = await Token.deploy();
@@ -92,7 +102,9 @@ contract('PoolMaster', function () {
       kyberStaking.address,
       kyberGovernance.address,
       rewardsDistributor.address,
-      5
+      mintFeeBps,
+      claimFeeBps,
+      burnFeeBps
     );
     await poolMaster.deployed();
   });
@@ -121,12 +133,38 @@ contract('PoolMaster', function () {
     Helper.assertEqual(await poolMaster.kyberGovernance(), admin.address);
   });
 
-  it('should allow changing of rewards fee by admin only', async () => {
-    await expectRevert(poolMaster.connect(operator).changeAdminFee(15), 'only admin');
-    await expectRevert(poolMaster.connect(user).changeAdminFee(15), 'only admin');
+  it('should allow changing of fees by admin only', async () => {
+    await expectRevert(poolMaster.connect(operator).changeFees(15, 10, 5), 'only admin');
+    await expectRevert(poolMaster.connect(user).changeFees(15, 10, 5), 'only admin');
 
-    await poolMaster.connect(admin).changeAdminFee(15);
-    Helper.assertEqual((await poolMaster.adminFeeBps()).toString(), 15);
+    await poolMaster.connect(admin).changeFees(25, 20, 10);
+    Helper.assertEqual((await poolMaster.getFeeRate(0)).toString(), 25);
+    Helper.assertEqual((await poolMaster.getFeeRate(1)).toString(), 20);
+    Helper.assertEqual((await poolMaster.getFeeRate(2)).toString(), 10);
+  });
+
+  it('revert invalid fee changes', async () => {
+    await expectRevert(poolMaster.connect(admin).changeFees(BPS_PLUS_ONE, ZERO, ZERO), 'bad mint bps');
+    await expectRevert(poolMaster.connect(admin).changeFees(ZERO, BPS_PLUS_ONE, ZERO), 'bad claim bps');
+    await expectRevert(poolMaster.connect(admin).changeFees(ZERO, ZERO, 9), 'bad burn bps');
+    await expectRevert(poolMaster.connect(admin).changeFees(ZERO, ZERO, BPS_PLUS_ONE), 'bad burn bps');
+  });
+
+  it('should apply valid fee changes', async () => {
+    await poolMaster.connect(admin).changeFees(BPS, ZERO, burnFeeBps);
+    Helper.assertEqual((await poolMaster.getFeeRate(0)).toString(), BPS.toString());
+    Helper.assertEqual((await poolMaster.getFeeRate(1)).toString(), ZERO.toString());
+    Helper.assertEqual((await poolMaster.getFeeRate(2)).toString(), burnFeeBps.toString());
+
+    await poolMaster.connect(admin).changeFees(ZERO, BPS, burnFeeBps);
+    Helper.assertEqual((await poolMaster.getFeeRate(0)).toString(), ZERO.toString());
+    Helper.assertEqual((await poolMaster.getFeeRate(1)).toString(), BPS.toString());
+    Helper.assertEqual((await poolMaster.getFeeRate(2)).toString(), burnFeeBps.toString());
+
+    await poolMaster.connect(admin).changeFees(ZERO, ZERO, BPS);
+    Helper.assertEqual((await poolMaster.getFeeRate(0)).toString(), ZERO.toString());
+    Helper.assertEqual((await poolMaster.getFeeRate(1)).toString(), ZERO.toString());
+    Helper.assertEqual((await poolMaster.getFeeRate(2)).toString(), BPS.toString());
   });
 
   it('should allow for staking with old KNC', async () => {
@@ -163,6 +201,14 @@ contract('PoolMaster', function () {
     Helper.assertGreater((await poolMaster.balanceOf(user.address)).toString(), currentPKNCBal.toString());
   });
 
+  it('should revert if mint fee = BPS', async () => {
+    let tokenAmount = 1000;
+    await newKnc.connect(admin).mint(user.address, tokenAmount);
+    await poolMaster.connect(admin).changeFees(BPS, ZERO, burnFeeBps);
+    await newKnc.connect(user).approve(poolMaster.address, MAX_UINT);
+    await expectRevert(poolMaster.connect(user).depositWithNewKnc(tokenAmount), 'deposit: amount is 0');
+  });
+
   it('should be able to vote by operator only', async () => {
     await expectRevert(poolMaster.connect(user).vote([1], [1]), 'only operator');
     await poolMaster.connect(admin).addOperator(operator.address);
@@ -183,29 +229,15 @@ contract('PoolMaster', function () {
     let initialEthBal = await ethers.provider.getBalance(poolMaster.address);
     let initialKncStake = await poolMaster.getLatestStake();
     await expectRevert(
-      poolMaster.connect(user).claimReward(1, 1, [ethAddress, newKnc.address], [1000, 1000], [ZERO_BYTES]),
+      poolMaster.connect(user).claimReward(1, 1, [ethAddress, newKnc.address], [100000, 100000], [ZERO_BYTES]),
       'only operator'
     );
 
     await poolMaster.connect(admin).addOperator(operator.address);
-    await poolMaster.connect(operator).claimReward(1, 1, [ethAddress, newKnc.address], [1000, 1000], [ZERO_BYTES]);
-
+    await poolMaster.connect(operator).claimReward(1, 1, [ethAddress, newKnc.address], [100000, 100000], [ZERO_BYTES]);
     let adminFee = await poolMaster.withdrawableAdminFees();
     let ethBal = await ethers.provider.getBalance(poolMaster.address);
     let kncStake = await poolMaster.getLatestStake();
-    Helper.assertGreater(adminFee.toString(), initialAdminFee.toString());
-    Helper.assertGreater(ethBal.toString(), initialEthBal.toString());
-    Helper.assertGreater(kncStake.toString(), initialKncStake.toString());
-
-    initialAdminFee = adminFee;
-    initialEthBal = ethBal;
-    initialKncStake = kncStake;
-
-    await poolMaster.connect(operator).claimReward(1, 1, [ethAddress, newKnc.address], [1000, 1000], [ZERO_BYTES]);
-
-    adminFee = await poolMaster.withdrawableAdminFees();
-    ethBal = await ethers.provider.getBalance(poolMaster.address);
-    kncStake = await poolMaster.getLatestStake();
     Helper.assertGreater(adminFee.toString(), initialAdminFee.toString());
     Helper.assertGreater(ethBal.toString(), initialEthBal.toString());
     Helper.assertGreater(kncStake.toString(), initialKncStake.toString());
@@ -242,7 +274,6 @@ contract('PoolMaster', function () {
     await dai.transfer(poolMaster.address, tokenAmount);
 
     await expectRevert(poolMaster.connect(user).liquidateTokensToKnc([dai.address], [ZERO]), 'only operator');
-
     let initialAdminFee = await poolMaster.withdrawableAdminFees();
     let initialKncStake = await poolMaster.getLatestStake();
 
@@ -266,10 +297,26 @@ contract('PoolMaster', function () {
     Helper.assertEqual((await dai.balanceOf(poolMaster.address)).toString(), ZERO.toString());
   });
 
+  it('should revert liquidations for bad token and minRates length', async () => {
+    await poolMaster.connect(admin).addOperator(operator.address);
+    await expectRevert(poolMaster.connect(operator).liquidateTokensToKnc([dai.address], []), 'unequal lengths');
+  });
+
+  it('will stake any leftover knc through liquidations', async () => {
+    await poolMaster.connect(admin).addOperator(operator.address);
+    // someone accidentally send KNC to contract
+    await newKnc.connect(admin).mint(poolMaster.address, precisionUnits);
+    let adminFee = await poolMaster.withdrawableAdminFees();
+    let kncStake = await poolMaster.getLatestStake();
+    await poolMaster.connect(operator).liquidateTokensToKnc([newKnc.address], [ZERO]);
+    Helper.assertGreater((await poolMaster.withdrawableAdminFees()).toString(), adminFee.toString());
+    Helper.assertGreater((await poolMaster.getLatestStake()).toString(), kncStake.toString());
+  });
+
   it('should withdraw admin fee by operator only to admin', async () => {
     let initialKncBal = await newKnc.balanceOf(admin.address);
     await poolMaster.connect(admin).addOperator(operator.address);
-    await poolMaster.connect(operator).claimReward(1, 1, [newKnc.address], [1000], [ZERO_BYTES]);
+    await poolMaster.connect(operator).claimReward(1, 1, [newKnc.address], [100000], [ZERO_BYTES]);
     let adminFee = await poolMaster.withdrawableAdminFees();
 
     await expectRevert(poolMaster.withdrawAdminFee(), 'only operator');
@@ -277,6 +324,22 @@ contract('PoolMaster', function () {
 
     Helper.assertEqual((await newKnc.balanceOf(admin.address)).toString(), initialKncBal.add(adminFee).toString());
     Helper.assertEqual((await poolMaster.withdrawableAdminFees()).toString(), ZERO.toString());
+  });
+
+  it('should stake admin fee by operator only to admin', async () => {
+    let initialPoolBal = await poolMaster.balanceOf(admin.address);
+    await poolMaster.connect(admin).addOperator(operator.address);
+    await poolMaster.connect(operator).claimReward(1, 1, [newKnc.address], [100000], [ZERO_BYTES]);
+
+    await expectRevert(poolMaster.stakeAdminFee(), 'only operator');
+    await poolMaster.connect(operator).stakeAdminFee();
+
+    Helper.assertGreater((await poolMaster.balanceOf(admin.address)).toString(), initialPoolBal.toString());
+    Helper.assertEqual((await poolMaster.withdrawableAdminFees()).toString(), ZERO.toString());
+  });
+
+  it('should fail attempted withdrawals if user does not have sufficient tokens', async () => {
+    await expectRevert(poolMaster.connect(operator).withdraw(1000), 'insufficient balance');
   });
 
   it('should redeem more KNC staked after rewards have been claimed and re-staked', async () => {
@@ -297,25 +360,31 @@ contract('PoolMaster', function () {
     // claim ETH, KNC, and DAI rewards from reward distributor
     await poolMaster
       .connect(operator)
-      .claimReward(1, 1, [ethAddress, newKnc.address, dai.address], [500, 500, 500], [ZERO_BYTES]);
+      .claimReward(1, 1, [ethAddress, newKnc.address, dai.address], [50000, 50000, 50000], [ZERO_BYTES]);
 
-    // before liquidation, if user withdraw, should obtain more KNC than stake
+    // before liquidation, if user withdraw, should obtain more KNC than stake (minus burn fee)
     let userKncBalBefore = await newKnc.balanceOf(user.address);
     await poolMaster.connect(user).approve(poolMaster.address, MAX_UINT);
     await poolMaster.connect(user).withdraw(await poolMaster.balanceOf(user.address));
     let userKncBalAfter = await newKnc.balanceOf(user.address);
-    Helper.assertGreater(userKncBalAfter.sub(userKncBalBefore).toString(), userTotalStakeAmount.toString());
+    Helper.assertGreater(
+      userKncBalAfter.sub(userKncBalBefore).toString(),
+      userTotalStakeAmount.mul(BPS.sub(burnFeeBps)).div(BPS).toString()
+    );
 
     // restake
     userTotalStakeAmount = userKncBalAfter.sub(userKncBalBefore);
     await poolMaster.connect(user).depositWithNewKnc(userTotalStakeAmount);
     userKncBalBefore = await newKnc.balanceOf(user.address);
 
-    // after liquidation, if user withdraw, should obtain more KNC than stake
+    // after liquidation, if user withdraw, should obtain more KNC than stake (minus burn fee)
     await poolMaster.connect(operator).approveKyberProxyContract(dai.address, true);
     await poolMaster.connect(operator).liquidateTokensToKnc([ethAddress, dai.address], [ZERO, ZERO]);
     await poolMaster.connect(user).withdraw(await poolMaster.balanceOf(user.address));
     userKncBalAfter = await newKnc.balanceOf(user.address);
-    Helper.assertGreater(userKncBalAfter.sub(userKncBalBefore).toString(), userTotalStakeAmount.toString());
+    Helper.assertGreater(
+      userKncBalAfter.sub(userKncBalBefore).toString(),
+      userTotalStakeAmount.mul(BPS.sub(burnFeeBps)).div(BPS).toString()
+    );
   });
 });
