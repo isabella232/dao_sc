@@ -244,10 +244,21 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
     return newKnc.balanceOf(address(this)).sub(withdrawableAdminFees);
   }
 
+  /*
+   * @notice Returns fee (in basis points) depending on fee type
+   */
   function getFeeRate(FeeTypes _type) public view returns (uint256) {
     if (_type == FeeTypes.MINT) return adminFees.mintFeeBps;
     else if (_type == FeeTypes.CLAIM) return adminFees.claimFeeBps;
     return adminFees.burnFeeBps;
+  }
+
+  /*
+   * @notice For APY calculation, returns rate of 1 pool master token to KNC
+   */
+  function getProRataKnc() public view returns (uint256) {
+    if (totalSupply() == 0) return 0;
+    return getLatestStake().mul(PRECISION).div(totalSupply());
   }
 
   function _changeFees(

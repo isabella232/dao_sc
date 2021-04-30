@@ -1,5 +1,6 @@
 const {expectRevert} = require('@openzeppelin/test-helpers');
 const {assert} = require('chai');
+const {hasNumericValueDependencies} = require('mathjs');
 const Helper = require('./helper.js');
 
 let BN;
@@ -209,6 +210,10 @@ contract('PoolMaster', function () {
     await expectRevert(poolMaster.connect(user).depositWithNewKnc(tokenAmount), 'deposit: amount is 0');
   });
 
+  it('should return 0 proRataKnc if totalSupply is 0', async () => {
+    Helper.assertEqual((await poolMaster.getProRataKnc()).toString(), ZERO.toString());
+  });
+
   it('should be able to vote by operator only', async () => {
     await expectRevert(poolMaster.connect(user).vote([1], [1]), 'only operator');
     await poolMaster.connect(admin).addOperator(operator.address);
@@ -345,6 +350,7 @@ contract('PoolMaster', function () {
   it('should redeem more KNC staked after rewards have been claimed and re-staked', async () => {
     let userTotalStakeAmount = precisionUnits.mul(new BN.from(2));
     let stakeAmount = precisionUnits;
+    let proRataKnc = await poolMaster.getProRataKnc();
     await poolMaster.connect(admin).addOperator(operator.address);
     // stake 1 old and 1 new KNC
     await oldKnc.connect(user).approve(poolMaster.address, MAX_UINT);
@@ -356,6 +362,11 @@ contract('PoolMaster', function () {
 
     // verify pool master has KNC staked into DAO
     Helper.assertGreater((await poolMaster.getLatestStake()).toString(), ZERO.toString());
+
+    // admin stakes some KNC so that proRataKnc > 0
+    await newKnc.connect(admin).approve(poolMaster.address, MAX_UINT);
+    await newKnc.connect(admin).mint(admin.address, stakeAmount);
+    await poolMaster.connect(admin).depositWithNewKnc(stakeAmount);
 
     // claim ETH, KNC, and DAI rewards from reward distributor
     await poolMaster
@@ -372,6 +383,9 @@ contract('PoolMaster', function () {
       userTotalStakeAmount.mul(BPS.sub(burnFeeBps)).div(BPS).toString()
     );
 
+    Helper.assertGreater((await poolMaster.getProRataKnc()).toString, proRataKnc.toString());
+    proRataKnc = await poolMaster.getProRataKnc();
+
     // restake
     userTotalStakeAmount = userKncBalAfter.sub(userKncBalBefore);
     await poolMaster.connect(user).depositWithNewKnc(userTotalStakeAmount);
@@ -386,5 +400,6 @@ contract('PoolMaster', function () {
       userKncBalAfter.sub(userKncBalBefore).toString(),
       userTotalStakeAmount.mul(BPS.sub(burnFeeBps)).div(BPS).toString()
     );
+    Helper.assertGreater((await poolMaster.getProRataKnc()).toString, proRataKnc.toString());
   });
 });
