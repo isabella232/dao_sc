@@ -1,10 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.7.6;
 
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
-import {ERC20} from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
-import {ERC20Burnable} from '@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol';
+import {ERC20, ERC20Burnable} from '@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {
@@ -181,6 +180,7 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
   /*
    * @notice Will liquidate ETH or ERC20 tokens to KNC
    * @notice Will apply admin fee after liquidations
+   * @notice Token allowance should have been given to proxy for liquidation
    * @dev Admin or operator calls with relevant params
    * @param tokens - ETH / ERC20 tokens to be liquidated to KNC
    * @param minRates - kyberProxy.getExpectedRate(eth/token => knc)
@@ -194,6 +194,7 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
       if (tokens[i] == ETH_ADDRESS) {
         kyberProxy.swapEtherToToken{value: address(this).balance}(newKnc, minRates[i]);
       } else if (tokens[i] != newKnc) {
+        // token allowance should have been given
         kyberProxy.swapTokenToToken(
           tokens[i],
           tokens[i].balanceOf(address(this)),
@@ -219,14 +220,14 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
   }
 
   function withdrawAdminFee() external onlyOperator {
-    uint256 fee = withdrawableAdminFees;
-    withdrawableAdminFees = 0;
+    uint256 fee = withdrawableAdminFees.sub(1);
+    withdrawableAdminFees = 1;
     newKnc.safeTransfer(admin, fee);
   }
 
   function stakeAdminFee() external onlyOperator {
-    uint256 fee = withdrawableAdminFees;
-    withdrawableAdminFees = 0;
+    uint256 fee = withdrawableAdminFees.sub(1);
+    withdrawableAdminFees = 1;
     _deposit(fee, admin);
   }
 

@@ -10,6 +10,7 @@ let operator;
 let user;
 
 let ZERO;
+let ONE;
 let MAX_UINT;
 let BPS;
 let BPS_PLUS_ONE;
@@ -39,8 +40,9 @@ contract('PoolMaster', function () {
     MAX_UINT = ethers.constants.MaxUint256;
     ZERO_BYTES = ethers.constants.HashZero;
     ZERO = ethers.constants.Zero;
+    ONE = ethers.constants.One;
     BPS = new BN.from(10000);
-    BPS_PLUS_ONE = BPS.add(ethers.constants.One);
+    BPS_PLUS_ONE = BPS.add(ONE);
     precisionUnits = new BN.from(10).pow(new BN.from(18));
     mintFeeBps = ZERO;
     claimFeeBps = new BN.from(5);
@@ -327,8 +329,11 @@ contract('PoolMaster', function () {
     await expectRevert(poolMaster.withdrawAdminFee(), 'only operator');
     await poolMaster.connect(operator).withdrawAdminFee();
 
-    Helper.assertEqual((await newKnc.balanceOf(admin.address)).toString(), initialKncBal.add(adminFee).toString());
-    Helper.assertEqual((await poolMaster.withdrawableAdminFees()).toString(), ZERO.toString());
+    Helper.assertEqual(
+      (await newKnc.balanceOf(admin.address)).toString(),
+      initialKncBal.add(adminFee).sub(ONE).toString()
+    );
+    Helper.assertEqual((await poolMaster.withdrawableAdminFees()).toString(), ONE.toString());
   });
 
   it('should stake admin fee by operator only to admin', async () => {
@@ -340,7 +345,7 @@ contract('PoolMaster', function () {
     await poolMaster.connect(operator).stakeAdminFee();
 
     Helper.assertGreater((await poolMaster.balanceOf(admin.address)).toString(), initialPoolBal.toString());
-    Helper.assertEqual((await poolMaster.withdrawableAdminFees()).toString(), ZERO.toString());
+    Helper.assertEqual((await poolMaster.withdrawableAdminFees()).toString(), ONE.toString());
   });
 
   it('should fail attempted withdrawals if user does not have sufficient tokens', async () => {
