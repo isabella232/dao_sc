@@ -165,16 +165,8 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
     bytes32[] calldata merkleProof
   ) external onlyOperator {
     rewardsDistributor.claim(cycle, index, address(this), tokens, cumulativeAmounts, merkleProof);
-
-    for (uint256 i = 0; i < tokens.length; i++) {
-      if (tokens[i] == newKnc) {
-        uint256 availableKnc = _administerAdminFee(
-          FeeTypes.CLAIM,
-          getAvailableNewKncBalanceTwei()
-        );
-        _stake(availableKnc);
-      }
-    }
+    uint256 availableKnc = _administerAdminFee(FeeTypes.CLAIM, getAvailableNewKncBalanceTwei());
+    if (availableKnc > 0) _stake(availableKnc);
   }
 
   /*

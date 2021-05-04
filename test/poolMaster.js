@@ -250,6 +250,14 @@ contract('PoolMaster', function () {
     Helper.assertGreater(kncStake.toString(), initialKncStake.toString());
   });
 
+  it('should be able to claim rewards even if claimable KNC is 0', async () => {
+    let initialEthBal = await ethers.provider.getBalance(poolMaster.address);
+    await poolMaster.connect(admin).addOperator(operator.address);
+    await poolMaster.connect(operator).claimReward(1, 1, [ethAddress, newKnc.address], [100000, 0], [ZERO_BYTES]);
+    let ethBal = await ethers.provider.getBalance(poolMaster.address);
+    Helper.assertGreater(ethBal.toString(), initialEthBal.toString());
+  });
+
   it('should have pool master give token allowance to proxy by the operator', async () => {
     await expectRevert(poolMaster.connect(user).approveKyberProxyContract(dai.address, true), 'only operator');
     await expectRevert(poolMaster.connect(operator).approveKyberProxyContract(dai.address, true), 'only operator');
