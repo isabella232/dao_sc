@@ -204,12 +204,12 @@ contract('PoolMaster', function () {
     Helper.assertGreater((await poolMaster.balanceOf(user.address)).toString(), currentPKNCBal.toString());
   });
 
-  it('should revert if mint fee = BPS', async () => {
+  it('should not revert if mint fee = BPS', async () => {
     let tokenAmount = 1000;
     await newKnc.connect(admin).mint(user.address, tokenAmount);
     await poolMaster.connect(admin).changeFees(BPS, ZERO, burnFeeBps);
     await newKnc.connect(user).approve(poolMaster.address, MAX_UINT);
-    await expectRevert(poolMaster.connect(user).depositWithNewKnc(tokenAmount), 'deposit: amount is 0');
+    await poolMaster.connect(user).depositWithNewKnc(tokenAmount);
   });
 
   it('should return 0 proRataKnc if totalSupply is 0', async () => {

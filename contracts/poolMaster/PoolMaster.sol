@@ -166,7 +166,7 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
   ) external onlyOperator {
     rewardsDistributor.claim(cycle, index, address(this), tokens, cumulativeAmounts, merkleProof);
     uint256 availableKnc = _administerAdminFee(FeeTypes.CLAIM, getAvailableNewKncBalanceTwei());
-    if (availableKnc > 0) _stake(availableKnc);
+    _stake(availableKnc);
   }
 
   /*
@@ -300,7 +300,7 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
    * @notice KyberDAO deposit
    */
   function _stake(uint256 amount) private {
-    kyberStaking.deposit(amount);
+    if (amount > 0) kyberStaking.deposit(amount);
   }
 
   /*
