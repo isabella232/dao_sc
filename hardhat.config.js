@@ -3,6 +3,7 @@ require("@nomiclabs/hardhat-web3");
 require("@nomiclabs/hardhat-etherscan");
 require("hardhat-gas-reporter");
 require('solidity-coverage');
+require('@openzeppelin/hardhat-upgrades');
 
 require('dotenv').config();
 

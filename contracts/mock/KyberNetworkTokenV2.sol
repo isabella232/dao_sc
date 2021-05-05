@@ -7,7 +7,7 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 
 interface IERC20Burnable {
-  function burnFrom(address _from, uint256 _value) external returns (bool);
+  function burnFrom(address _from, uint256 _value) external;
 }
 
 /// @dev copy from kyber network repo
