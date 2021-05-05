@@ -82,9 +82,8 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
     rewardsDistributor = _rewardsDistributor;
     address _newKnc = address(_kyberStaking.kncToken());
     newKnc = IERC20Ext(_newKnc);
-    IERC20Ext _oldKnc = IERC20Ext(INewKNC(address(_newKnc)).oldKNC());
-    oldKnc = IERC20Ext(_oldKnc);
-    _oldKnc = IERC20Ext(INewKNC(_newKnc).oldKNC());
+    IERC20Ext _oldKnc = IERC20Ext(INewKNC(_newKnc).oldKNC());
+    oldKnc = _oldKnc;
     _oldKnc.safeApprove(_newKnc, type(uint256).max);
     IERC20Ext(_newKnc).safeApprove(address(_kyberStaking), type(uint256).max);
     _changeFees(_mintFeeBps, _claimFeeBps, _burnFeeBps);
