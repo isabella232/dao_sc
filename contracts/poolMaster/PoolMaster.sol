@@ -45,10 +45,13 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
     uint256 burnFeeBps;
   }
 
+  event FeesSet(uint256 mintFeeBps, uint256 burnFeeBps, uint256 claimFeeBps);
   enum FeeTypes {MINT, CLAIM, BURN}
+
   IERC20Ext internal constant ETH_ADDRESS = IERC20Ext(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
   uint256 internal constant PRECISION = (10**18);
   uint256 internal constant BPS = 10000;
+  uint256 internal constant MAX_FEE_BPS = 1000; // 10%
   uint256 internal constant INITIAL_SUPPLY_MULTIPLIER = 10;
   Fees public adminFees;
   uint256 public withdrawableAdminFees;
@@ -57,8 +60,8 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
   IKyberStaking public immutable kyberStaking;
   IRewardsDistributor public rewardsDistributor;
   IKyberGovernance public kyberGovernance;
-  IERC20Ext public newKnc;
-  IERC20Ext private oldKnc;
+  IERC20Ext public immutable newKnc;
+  IERC20Ext private immutable oldKnc;
 
   receive() external payable {}
 
@@ -77,10 +80,13 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
     kyberStaking = _kyberStaking;
     kyberGovernance = _kyberGovernance;
     rewardsDistributor = _rewardsDistributor;
-    newKnc = IERC20Ext(address(_kyberStaking.kncToken()));
-    oldKnc = IERC20Ext(INewKNC(address(newKnc)).oldKNC());
-    oldKnc.safeApprove(address(newKnc), type(uint256).max);
-    newKnc.safeApprove(address(_kyberStaking), type(uint256).max);
+    address _newKnc = address(_kyberStaking.kncToken());
+    newKnc = IERC20Ext(_newKnc);
+    IERC20Ext _oldKnc = IERC20Ext(INewKNC(address(_newKnc)).oldKNC());
+    oldKnc = IERC20Ext(_oldKnc);
+    _oldKnc = IERC20Ext(INewKNC(_newKnc).oldKNC());
+    _oldKnc.safeApprove(_newKnc, type(uint256).max);
+    IERC20Ext(_newKnc).safeApprove(address(_kyberStaking), type(uint256).max);
     _changeFees(_mintFeeBps, _claimFeeBps, _burnFeeBps);
   }
 
@@ -184,12 +190,14 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
     require(tokens.length == minRates.length, 'unequal lengths');
     for (uint256 i = 0; i < tokens.length; i++) {
       if (tokens[i] == ETH_ADDRESS) {
-        kyberProxy.swapEtherToToken{value: address(this).balance}(newKnc, minRates[i]);
+        // leave 1 wei for gas optimizations
+        kyberProxy.swapEtherToToken{value: address(this).balance.sub(1)}(newKnc, minRates[i]);
       } else if (tokens[i] != newKnc) {
         // token allowance should have been given
+        // leave 1 twei for gas optimizations
         kyberProxy.swapTokenToToken(
           tokens[i],
-          tokens[i].balanceOf(address(this)),
+          tokens[i].balanceOf(address(this)).sub(1),
           newKnc,
           minRates[i]
         );
@@ -259,14 +267,15 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
     uint256 _claimFeeBps,
     uint256 _burnFeeBps
   ) internal {
-    require(_mintFeeBps <= BPS, 'bad mint bps');
-    require(_claimFeeBps <= BPS, 'bad claim bps');
-    require(_burnFeeBps >= 10 && _burnFeeBps <= BPS, 'bad burn bps');
+    require(_mintFeeBps <= MAX_FEE_BPS, 'bad mint bps');
+    require(_claimFeeBps <= MAX_FEE_BPS, 'bad claim bps');
+    require(_burnFeeBps >= 10 && _burnFeeBps <= MAX_FEE_BPS, 'bad burn bps');
     adminFees = Fees({
       mintFeeBps: _mintFeeBps,
       claimFeeBps: _claimFeeBps,
       burnFeeBps: _burnFeeBps
     });
+    emit FeesSet(_mintFeeBps, _claimFeeBps, _burnFeeBps);
   }
 
   /*
@@ -288,10 +297,10 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
   function _deposit(uint256 tokenWei, address user) internal {
     uint256 balanceBefore = getLatestStake();
     if (user != admin) _administerAdminFee(FeeTypes.MINT, tokenWei);
+    uint256 depositAmount = getAvailableNewKncBalanceTwei();
+    _stake(depositAmount);
 
-    _stake(getAvailableNewKncBalanceTwei());
-
-    uint256 mintAmount = _calculateMintAmount(balanceBefore);
+    uint256 mintAmount = _calculateMintAmount(balanceBefore, depositAmount);
 
     return super._mint(user, mintAmount);
   }
@@ -316,14 +325,15 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
    * and approaches 1/1 as rewards accrue in KNC
    * @param kncBalanceBefore used to determine ratio of incremental to current KNC
    */
-  function _calculateMintAmount(uint256 kncBalanceBefore)
+  function _calculateMintAmount(uint256 kncBalanceBefore, uint256 depositAmount)
     private
     view
     returns (uint256 mintAmount)
   {
-    uint256 kncBalanceAfter = getLatestStake();
-    if (totalSupply() == 0) return kncBalanceAfter.mul(INITIAL_SUPPLY_MULTIPLIER);
+    uint256 totalSupply = totalSupply();
+    if (totalSupply == 0)
+      return (kncBalanceBefore.add(depositAmount)).mul(INITIAL_SUPPLY_MULTIPLIER);
 
-    mintAmount = (kncBalanceAfter.sub(kncBalanceBefore)).mul(totalSupply()).div(kncBalanceBefore);
+    mintAmount = depositAmount.mul(totalSupply).div(kncBalanceBefore);
   }
 }

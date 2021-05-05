@@ -1,4 +1,4 @@
-const {expectRevert} = require('@openzeppelin/test-helpers');
+const {expectEvent, expectRevert} = require('@openzeppelin/test-helpers');
 const {assert} = require('chai');
 const {hasNumericValueDependencies} = require('mathjs');
 const Helper = require('./helper.js');
@@ -13,7 +13,8 @@ let ZERO;
 let ONE;
 let MAX_UINT;
 let BPS;
-let BPS_PLUS_ONE;
+let MAX_FEE_BPS;
+let MAX_FEE_BPS_PLUS_ONE;
 let ZERO_BYTES;
 let ethAddress = Helper.ethAddress;
 let mintFeeBps;
@@ -42,7 +43,8 @@ contract('PoolMaster', function () {
     ZERO = ethers.constants.Zero;
     ONE = ethers.constants.One;
     BPS = new BN.from(10000);
-    BPS_PLUS_ONE = BPS.add(ONE);
+    MAX_FEE_BPS = new BN.from(1000);
+    MAX_FEE_BPS_PLUS_ONE = MAX_FEE_BPS.add(ONE);
     precisionUnits = new BN.from(10).pow(new BN.from(18));
     mintFeeBps = ZERO;
     claimFeeBps = new BN.from(5);
@@ -140,34 +142,39 @@ contract('PoolMaster', function () {
     await expectRevert(poolMaster.connect(operator).changeFees(15, 10, 5), 'only admin');
     await expectRevert(poolMaster.connect(user).changeFees(15, 10, 5), 'only admin');
 
-    await poolMaster.connect(admin).changeFees(25, 20, 10);
+    let tx = await (await poolMaster.connect(admin).changeFees(25, 20, 10)).wait();
     Helper.assertEqual((await poolMaster.getFeeRate(0)).toString(), 25);
     Helper.assertEqual((await poolMaster.getFeeRate(1)).toString(), 20);
     Helper.assertEqual((await poolMaster.getFeeRate(2)).toString(), 10);
+    expectEvent({logs: tx.events}, 'FeesSet', {
+      mintFeeBps: new BN.from(25),
+      burnFeeBps: new BN.from(20),
+      claimFeeBps: new BN.from(10),
+    });
   });
 
   it('revert invalid fee changes', async () => {
-    await expectRevert(poolMaster.connect(admin).changeFees(BPS_PLUS_ONE, ZERO, ZERO), 'bad mint bps');
-    await expectRevert(poolMaster.connect(admin).changeFees(ZERO, BPS_PLUS_ONE, ZERO), 'bad claim bps');
+    await expectRevert(poolMaster.connect(admin).changeFees(MAX_FEE_BPS_PLUS_ONE, ZERO, ZERO), 'bad mint bps');
+    await expectRevert(poolMaster.connect(admin).changeFees(ZERO, MAX_FEE_BPS_PLUS_ONE, ZERO), 'bad claim bps');
     await expectRevert(poolMaster.connect(admin).changeFees(ZERO, ZERO, 9), 'bad burn bps');
-    await expectRevert(poolMaster.connect(admin).changeFees(ZERO, ZERO, BPS_PLUS_ONE), 'bad burn bps');
+    await expectRevert(poolMaster.connect(admin).changeFees(ZERO, ZERO, MAX_FEE_BPS_PLUS_ONE), 'bad burn bps');
   });
 
   it('should apply valid fee changes', async () => {
-    await poolMaster.connect(admin).changeFees(BPS, ZERO, burnFeeBps);
-    Helper.assertEqual((await poolMaster.getFeeRate(0)).toString(), BPS.toString());
+    await poolMaster.connect(admin).changeFees(MAX_FEE_BPS, ZERO, burnFeeBps);
+    Helper.assertEqual((await poolMaster.getFeeRate(0)).toString(), MAX_FEE_BPS.toString());
     Helper.assertEqual((await poolMaster.getFeeRate(1)).toString(), ZERO.toString());
     Helper.assertEqual((await poolMaster.getFeeRate(2)).toString(), burnFeeBps.toString());
 
-    await poolMaster.connect(admin).changeFees(ZERO, BPS, burnFeeBps);
+    await poolMaster.connect(admin).changeFees(ZERO, MAX_FEE_BPS, burnFeeBps);
     Helper.assertEqual((await poolMaster.getFeeRate(0)).toString(), ZERO.toString());
-    Helper.assertEqual((await poolMaster.getFeeRate(1)).toString(), BPS.toString());
+    Helper.assertEqual((await poolMaster.getFeeRate(1)).toString(), MAX_FEE_BPS.toString());
     Helper.assertEqual((await poolMaster.getFeeRate(2)).toString(), burnFeeBps.toString());
 
-    await poolMaster.connect(admin).changeFees(ZERO, ZERO, BPS);
+    await poolMaster.connect(admin).changeFees(ZERO, ZERO, MAX_FEE_BPS);
     Helper.assertEqual((await poolMaster.getFeeRate(0)).toString(), ZERO.toString());
     Helper.assertEqual((await poolMaster.getFeeRate(1)).toString(), ZERO.toString());
-    Helper.assertEqual((await poolMaster.getFeeRate(2)).toString(), BPS.toString());
+    Helper.assertEqual((await poolMaster.getFeeRate(2)).toString(), MAX_FEE_BPS.toString());
   });
 
   it('should allow for staking with old KNC', async () => {
@@ -202,14 +209,6 @@ contract('PoolMaster', function () {
 
     // check PKNC minted to user
     Helper.assertGreater((await poolMaster.balanceOf(user.address)).toString(), currentPKNCBal.toString());
-  });
-
-  it('should not revert if mint fee = BPS', async () => {
-    let tokenAmount = 1000;
-    await newKnc.connect(admin).mint(user.address, tokenAmount);
-    await poolMaster.connect(admin).changeFees(BPS, ZERO, burnFeeBps);
-    await newKnc.connect(user).approve(poolMaster.address, MAX_UINT);
-    await poolMaster.connect(user).depositWithNewKnc(tokenAmount);
   });
 
   it('should return 0 proRataKnc if totalSupply is 0', async () => {
@@ -298,7 +297,7 @@ contract('PoolMaster', function () {
     kncStake = await poolMaster.getLatestStake();
     Helper.assertGreater(adminFee.toString(), initialAdminFee.toString());
     Helper.assertGreater(kncStake.toString(), initialKncStake.toString());
-    Helper.assertEqual((await ethers.provider.getBalance(poolMaster.address)).toString(), ZERO.toString());
+    Helper.assertEqual((await ethers.provider.getBalance(poolMaster.address)).toString(), ONE.toString());
     initialAdminFee = adminFee;
     initialKncStake = kncStake;
 
@@ -309,7 +308,7 @@ contract('PoolMaster', function () {
     kncStake = await poolMaster.getLatestStake();
     Helper.assertGreater(adminFee.toString(), initialAdminFee.toString());
     Helper.assertGreater(kncStake.toString(), initialKncStake.toString());
-    Helper.assertEqual((await dai.balanceOf(poolMaster.address)).toString(), ZERO.toString());
+    Helper.assertEqual((await dai.balanceOf(poolMaster.address)).toString(), ONE.toString());
   });
 
   it('should revert liquidations for bad token and minRates length', async () => {
