@@ -7,6 +7,7 @@ require('solidity-coverage');
 require('dotenv').config();
 
 require('./deployment/katanaDeployment.js');
+require('./deployment/deployInternalGovernance.js');
 const {accounts} = require('./test-wallets.js');
 
 module.exports = {
