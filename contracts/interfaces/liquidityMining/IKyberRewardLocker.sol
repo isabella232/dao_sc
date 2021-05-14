@@ -6,24 +6,26 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
 interface IKyberRewardLocker {
   struct VestingSchedule {
-    uint64 startTime;
-    uint64 endTime;
+    uint64 startBlock;
+    uint64 endBlock;
     uint128 quantity;
+    uint128 vestedQuantity;
   }
 
   event VestingEntryCreated(
     IERC20Ext indexed token,
     address indexed beneficiary,
-    uint256 time,
-    uint256 value
+    uint256 startBlock,
+    uint256 endBlock,
+    uint256 quantity,
+    uint256 index
   );
 
   event Vested(
     IERC20Ext indexed token,
     address indexed beneficiary,
-    uint256 time,
     uint256 vestedQuantity,
-    uint256 slashedQuantity
+    uint256 index
   );
 
   /**
@@ -38,11 +40,11 @@ interface IKyberRewardLocker {
   /**
    * @dev queue a vesting schedule
    */
-  function lockWithStartTime(
+  function lockWithStartBlock(
     IERC20Ext token,
     address account,
     uint256 quantity,
-    uint256 startTime
+    uint256 startBlock
   ) external;
 
   /**
@@ -52,11 +54,20 @@ interface IKyberRewardLocker {
 
   /**
    * @dev claim token for specific vesting schedule,
-   * @dev if schedule has not ended yet, claiming amount is linear with vesting time (the rest are slashing)
+   * @dev if schedule has not ended yet, claiming amount is linear with vesting blocks
    */
   function vestScheduleAtIndex(IERC20Ext token, uint256[] calldata indexes)
     external
     returns (uint256);
+
+  /**
+   * @dev claim token for specific vesting schedule from startIndex to endIndex
+   */
+  function vestSchedulesInRange(
+    IERC20Ext token,
+    uint256 startIndex,
+    uint256 endIndex
+  ) external returns (uint256);
 
   /**
    * @dev length of vesting schedules array
@@ -70,14 +81,7 @@ interface IKyberRewardLocker {
     address account,
     IERC20Ext token,
     uint256 index
-  )
-    external
-    view
-    returns (
-      uint64 startTime,
-      uint64 endTime,
-      uint128 quantity
-    );
+  ) external view returns (VestingSchedule memory);
 
   /**
    * @dev get vesting shedules array
