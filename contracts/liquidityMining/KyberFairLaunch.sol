@@ -123,7 +123,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   }
 
   /**
-   *  @dev allow admin to withdraw only reward token
+   * @dev allow admin to withdraw only reward token
    */
   function adminWithdraw(uint256 amount) external onlyAdmin {
     rewardToken.safeTransfer(msg.sender, amount);
@@ -268,7 +268,7 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
   /**
    * @notice EMERGENCY USAGE ONLY, USER'S REWARD WILL BE RESET
-   * @dev  emergency withdrawal function to allow withdraw all deposited token (of the sender)
+   * @dev emergency withdrawal function to allow withdraw all deposited token (of the sender)
    *   without harvesting the reward
    * @param _pid: id of the pool
    */
@@ -292,10 +292,29 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
 
   /**
    * @dev harvest rewards from multiple pools for the sender
+   *   combine rewards from all pools and only transfer once to save gas
    */
   function harvestMultiplePools(uint256[] calldata _pids) external override {
+    uint256 totalRewards;
+    address account = msg.sender;
+    uint256 pid;
+
     for (uint256 i = 0; i < _pids.length; i++) {
-      harvest(_pids[i]);
+      pid = _pids[i];
+      updatePoolRewards(pid);
+      // update user reward without harvesting
+      _updateUserReward(account, pid, false);
+
+      uint256 reward = userInfo[pid][account].unclaimedReward;
+      if (reward > 0) {
+        totalRewards = totalRewards.add(reward);
+        userInfo[pid][account].unclaimedReward = 0;
+        emit Harvest(account, pid, block.number, reward);
+      }
+    }
+
+    if (totalRewards > 0) {
+      rewardLocker.lock(rewardToken, account, totalRewards);
     }
   }
 
