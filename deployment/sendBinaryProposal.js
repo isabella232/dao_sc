@@ -403,9 +403,10 @@ async function getFunctionOptionAndData(contract, functionList) {
 function convertInputValues(inputValues) {
   return inputValues.map((inputValue) => {
     if (typeof inputValue == 'number') {
-      let numDecimals = countDecimals(inputValue);
-      inputValue = inputValue * 10 ** numDecimals;
       let BN = ethers.BigNumber;
+      let numDecimals = countDecimals(inputValue);
+      if (numDecimals == 0) return new BN.from(inputValue);
+      inputValue = inputValue * 10 ** numDecimals;
       inputValue = new BN.from(inputValue)
         .mul(ethers.constants.WeiPerEther)
         .div(new BN.from(10).mul(new BN.from(numDecimals)))
