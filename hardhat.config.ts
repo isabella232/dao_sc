@@ -13,11 +13,9 @@ dotenv.config();
 
 import './deployment/katanaDeployment.js';
 import './deployment/deployInternalGovernance.js';
-<<<<<<< HEAD
 import './deployment/liquidityMining/deployLiquidityMining.js';
-=======
 import './deployment/sendBinaryProposal.js';
->>>>>>> a95215c... Script for creating binary proposal
+import './deployment/simulateProposal.js';
 import { accounts } from './test-wallets';
 
 const config: HardhatUserConfig = {

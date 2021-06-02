@@ -278,6 +278,7 @@ let gnosisWalletAddress;
 let executorAddress;
 let votingPowerStrategyAddress;
 let contractsToCall;
+let outputFilename;
 
 let startTimestamp;
 let endTimestamp;
@@ -425,6 +426,7 @@ function convertInputValues(inputValues) {
 
 task('createBinaryProposal', 'create binary proposal')
   .addParam('f', 'JSON file for settings and addresses')
+  .addOptionalParam('s', 'Send tx to multisig wallet', false, types.boolean)
   .setAction(async (taskArgs) => {
     const addressPath = path.join(__dirname, taskArgs.f);
     const addressParams = JSON.parse(fs.readFileSync(addressPath, 'utf8'));
@@ -453,15 +455,15 @@ task('createBinaryProposal', 'create binary proposal')
         link
       )
     ).data;
-    console.log(txData);
 
-    // console.log(`Sending tx to gnosisWallet ${gnosisWalletAddress}`);
-    // await gnosisWallet.submitTransaction(
-    //   kyberGovernanceAddress,
-    //   0,
-    //   txData,
-    //   {gasLimit: 2000000}
-    // );
+    addressParams['txData'] = txData;
+    let json = JSON.stringify(addressParams, null, 2);
+    fs.writeFileSync(path.join(__dirname, outputFilename), json);
+
+    if ((await gnosisWallet.isOwner(sender.address)) && taskArgs.s) {
+      console.log(`Sending tx to gnosisWallet ${gnosisWalletAddress}`);
+      await gnosisWallet.submitTransaction(kyberGovernanceAddress, 0, txData, {gasLimit: 2000000});
+    }
     process.exit(0);
   });
 
@@ -474,6 +476,7 @@ function parseValidateInput(jsonInput) {
   startTimestamp = jsonInput['startTimestamp'];
   endTimestamp = jsonInput['endTimestamp'];
   link = jsonInput['link'];
+  outputFilename = jsonInput['outputFilename'];
 
   // check start and timestamps
   let now = Math.floor(new Date().getTime() / 1000);
