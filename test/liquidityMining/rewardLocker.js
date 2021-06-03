@@ -37,7 +37,7 @@ contract('KyberRewardLocker', (accounts) => {
       rewardLocker = await RewardLocker.new(admin);
     });
 
-    for(let i = 0; i < rewardTokens.length; i++) {
+    for (let i = 0; i < rewardTokens.length; i++) {
       it('add/remove reward contract', async () => {
         await expectRevert(
           rewardLocker.addRewardsContract(rewardTokens[i], rewardContract, {from: user1}),
@@ -217,12 +217,9 @@ contract('KyberRewardLocker', (accounts) => {
 
     it('revert invalid msg value', async () => {
       let lockedAmount = precisionUnits.div(new BN(5));
+      await expectRevert(rewardLocker.lock(zeroAddress, user1, lockedAmount, {value: 0}), 'Invalid locked quantity');
       await expectRevert(
-        rewardLocker.lock(zeroAddress, user1, lockedAmount, { value: 0 }),
-        'Invalid locked quantity'
-      );
-      await expectRevert(
-        rewardLocker.lock(zeroAddress, user1, lockedAmount, { value: lockedAmount.mul(new BN(2)) }),
+        rewardLocker.lock(zeroAddress, user1, lockedAmount, {value: lockedAmount.mul(new BN(2))}),
         'Invalid locked quantity'
       );
     });
@@ -230,7 +227,7 @@ contract('KyberRewardLocker', (accounts) => {
     it('lock and vest with full time', async () => {
       await rewardLocker.setBlockNumber(new BN(7200));
       let lockedAmount = precisionUnits.div(new BN(5));
-      await rewardLocker.lock(zeroAddress, user1, lockedAmount, { value: lockedAmount });
+      await rewardLocker.lock(zeroAddress, user1, lockedAmount, {value: lockedAmount});
 
       let vestingSchedules = await rewardLocker.getVestingSchedules(user1, zeroAddress);
       expect(vestingSchedules.length).equals(1);
@@ -251,16 +248,19 @@ contract('KyberRewardLocker', (accounts) => {
     it('lock and vest and claim with half time', async () => {
       await rewardLocker.setBlockNumber(new BN(7200));
       let lockedAmount1 = precisionUnits.div(new BN(7));
-      await rewardLocker.lock(zeroAddress, user1, lockedAmount1, { value: lockedAmount1 });
+      await rewardLocker.lock(zeroAddress, user1, lockedAmount1, {value: lockedAmount1});
 
       let lockedAmount2 = precisionUnits.div(new BN(8));
       await rewardLocker.setBlockNumber(new BN(9000));
-      await rewardLocker.lock(zeroAddress, user1, lockedAmount2, { value: lockedAmount2 });
+      await rewardLocker.lock(zeroAddress, user1, lockedAmount2, {value: lockedAmount2});
 
       await rewardLocker.setBlockNumber(new BN(10800));
       let userBalance = await Helper.getBalancePromise(user1);
       let lockerBalance = await Helper.getBalancePromise(rewardLocker.address);
-      txResult = await rewardLocker.vestScheduleAtIndices(zeroAddress, [new BN(0), new BN(1)], { from: user1, gasPrice: new BN(0) });
+      txResult = await rewardLocker.vestScheduleAtIndices(zeroAddress, [new BN(0), new BN(1)], {
+        from: user1,
+        gasPrice: new BN(0),
+      });
       expectEvent(txResult, 'Vested', {
         token: zeroAddress,
         beneficiary: user1,
@@ -274,10 +274,7 @@ contract('KyberRewardLocker', (accounts) => {
         vestedQuantity: vestedAmount2,
         index: new BN(1),
       });
-      Helper.assertEqual(
-        userBalance.add(lockedAmount1).add(vestedAmount2),
-        await Helper.getBalancePromise(user1)
-      );
+      Helper.assertEqual(userBalance.add(lockedAmount1).add(vestedAmount2), await Helper.getBalancePromise(user1));
       Helper.assertEqual(
         lockerBalance.sub(lockedAmount1).sub(vestedAmount2),
         await Helper.getBalancePromise(rewardLocker.address)
@@ -291,7 +288,10 @@ contract('KyberRewardLocker', (accounts) => {
       Helper.assertEqual(vestingSchedules[1].vestedQuantity, vestedAmount2);
 
       await rewardLocker.setBlockNumber(new BN(11700));
-      txResult = await rewardLocker.vestScheduleAtIndices(zeroAddress, [new BN(0), new BN(1)], { from: user1, gasPrice: new BN(0) });
+      txResult = await rewardLocker.vestScheduleAtIndices(zeroAddress, [new BN(0), new BN(1)], {
+        from: user1,
+        gasPrice: new BN(0),
+      });
       let vestedAmount22 = lockedAmount2.div(new BN(4));
       expectEvent(txResult, 'Vested', {
         token: zeroAddress,
@@ -299,12 +299,8 @@ contract('KyberRewardLocker', (accounts) => {
         vestedQuantity: vestedAmount22,
         index: new BN(1),
       });
-      Helper.assertEqual(
-        userBalance.add(vestedAmount22), await Helper.getBalancePromise(user1)
-      );
-      Helper.assertEqual(
-        lockerBalance.sub(vestedAmount22), await Helper.getBalancePromise(rewardLocker.address)
-      );
+      Helper.assertEqual(userBalance.add(vestedAmount22), await Helper.getBalancePromise(user1));
+      Helper.assertEqual(lockerBalance.sub(vestedAmount22), await Helper.getBalancePromise(rewardLocker.address));
       vestingSchedules = await rewardLocker.getVestingSchedules(user1, zeroAddress);
       expect(vestingSchedules.length).equals(2);
       Helper.assertEqual(vestingSchedules[0].vestedQuantity, lockedAmount1);
@@ -314,18 +310,21 @@ contract('KyberRewardLocker', (accounts) => {
     it('#vestSchedulesInRange', async () => {
       await rewardLocker.setBlockNumber(new BN(7200));
       let lockedAmount1 = precisionUnits.div(new BN(7));
-      await rewardLocker.lock(zeroAddress, user1, lockedAmount1, { value: lockedAmount1 });
+      await rewardLocker.lock(zeroAddress, user1, lockedAmount1, {value: lockedAmount1});
 
       await rewardLocker.setBlockNumber(new BN(9000));
       let lockedAmount2 = precisionUnits.div(new BN(8));
-      await rewardLocker.lock(zeroAddress, user1, lockedAmount2, { value: lockedAmount2 });
+      await rewardLocker.lock(zeroAddress, user1, lockedAmount2, {value: lockedAmount2});
 
       await rewardLocker.setBlockNumber(new BN(10800));
 
       let userBalance = await Helper.getBalancePromise(user1);
       let lockerBalance = await Helper.getBalancePromise(rewardLocker.address);
 
-      txResult = await rewardLocker.vestSchedulesInRange(zeroAddress, new BN(0), new BN(1), { from: user1, gasPrice: new BN(0) });
+      txResult = await rewardLocker.vestSchedulesInRange(zeroAddress, new BN(0), new BN(1), {
+        from: user1,
+        gasPrice: new BN(0),
+      });
       let vestedAmount2 = lockedAmount2.div(new BN(2));
 
       expectEvent(txResult, 'Vested', {
@@ -341,10 +340,7 @@ contract('KyberRewardLocker', (accounts) => {
         index: new BN(1),
       });
 
-      Helper.assertEqual(
-        userBalance.add(lockedAmount1).add(vestedAmount2),
-        await Helper.getBalancePromise(user1)
-      );
+      Helper.assertEqual(userBalance.add(lockedAmount1).add(vestedAmount2), await Helper.getBalancePromise(user1));
       Helper.assertEqual(
         lockerBalance.sub(lockedAmount1).sub(vestedAmount2),
         await Helper.getBalancePromise(rewardLocker.address)
@@ -359,19 +355,18 @@ contract('KyberRewardLocker', (accounts) => {
 
       await rewardLocker.setBlockNumber(new BN(11700));
       let vestedAmount22 = lockedAmount2.div(new BN(4));
-      txResult = await rewardLocker.vestSchedulesInRange(zeroAddress, new BN(0), new BN(1), { from: user1, gasPrice: new BN(0) });
+      txResult = await rewardLocker.vestSchedulesInRange(zeroAddress, new BN(0), new BN(1), {
+        from: user1,
+        gasPrice: new BN(0),
+      });
       expectEvent(txResult, 'Vested', {
         token: zeroAddress,
         beneficiary: user1,
         vestedQuantity: vestedAmount22,
         index: new BN(1),
       });
-      Helper.assertEqual(
-        userBalance.add(vestedAmount22), await Helper.getBalancePromise(user1)
-      );
-      Helper.assertEqual(
-        lockerBalance.sub(vestedAmount22), await Helper.getBalancePromise(rewardLocker.address)
-      );
+      Helper.assertEqual(userBalance.add(vestedAmount22), await Helper.getBalancePromise(user1));
+      Helper.assertEqual(lockerBalance.sub(vestedAmount22), await Helper.getBalancePromise(rewardLocker.address));
       vestingSchedules = await rewardLocker.getVestingSchedules(user1, zeroAddress);
       expect(vestingSchedules.length).equals(2);
       Helper.assertEqual(vestingSchedules[0].vestedQuantity, lockedAmount1);

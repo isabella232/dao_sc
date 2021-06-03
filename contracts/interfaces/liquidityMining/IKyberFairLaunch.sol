@@ -8,13 +8,15 @@ interface IKyberFairLaunch {
    * @param _stakeToken: token to be staked to the pool
    * @param _startBlock: block where the reward starts
    * @param _endBlock: block where the reward ends
+   * @param _rewardTokens: list of reward tokens for the pool
    * @param _rewardPerBlocks: amount of reward token per block for the pool
    */
   function addPool(
     address _stakeToken,
     uint32 _startBlock,
     uint32 _endBlock,
-    uint128[] calldata _rewardPerBlocks
+    address[] calldata _rewardTokens,
+    uint256[] calldata _rewardPerBlocks
   ) external;
 
   /**
@@ -28,7 +30,7 @@ interface IKyberFairLaunch {
     uint256 _pid,
     uint32 _startBlock,
     uint32 _endBlock,
-    uint128[] calldata _rewardPerBlocks
+    uint256[] calldata _rewardPerBlocks
   ) external;
 
   /**
@@ -40,8 +42,15 @@ interface IKyberFairLaunch {
   function updatePool(
     uint256 _pid,
     uint32 _endBlock,
-    uint128[] calldata _rewardPerBlocks
+    uint256[] calldata _rewardPerBlocks
   ) external;
+
+  /**
+   * @dev add reward token to the pool reward tokens
+   * in case removing, call updatePool to set the reward per block to 0
+   */
+  function addRewardToken(uint256 _pid, address _rewardToken, uint256 _rewardPerBlock)
+    external;
 
   /**
    * @dev deposit to tokens to accumulate rewards
@@ -96,11 +105,6 @@ interface IKyberFairLaunch {
    */
   function poolLength() external view returns (uint256);
 
-  /**
-  * @dev return list reward tokens
-  */
-
-  function getRewardTokens() external view returns (address[] memory);
   /**
    * @dev get pending reward of a user from a pool, mostly for front-end
    * @param _pid: id of the pool
