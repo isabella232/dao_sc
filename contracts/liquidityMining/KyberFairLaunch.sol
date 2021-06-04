@@ -371,9 +371,9 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
     address[] memory rTokens = pool.rewardTokens;
     rewards = new uint256[](rTokens.length);
 
+    uint32 lastAccountedBlock = _lastAccountedRewardBlock(_pid);
     for(uint256 i = 0; i < rTokens.length; i++) {
       uint256 _accRewardPerShare = pool.poolRewardData[rTokens[i]].accRewardPerShare;
-      uint32 lastAccountedBlock = _lastAccountedRewardBlock(_pid);
       if (lastAccountedBlock > _poolLastRewardBlock && _totalStake != 0) {
         uint256 reward = (lastAccountedBlock - _poolLastRewardBlock)
           .mul(pool.poolRewardData[rTokens[i]].rewardPerBlock);
@@ -410,13 +410,14 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
       return;
     }
     uint256 numberBlocks = lastAccountedBlock - pool.lastRewardBlock;
+    pool.lastRewardBlock = lastAccountedBlock;
+    if (numberBlocks == 0) return;
     for(uint256 i = 0; i < pool.rewardTokens.length; i++) {
       PoolRewardData storage rewardData = pool.poolRewardData[pool.rewardTokens[i]];
       uint256 reward = numberBlocks.mul(rewardData.rewardPerBlock);
       rewardData.accRewardPerShare = rewardData.accRewardPerShare
         .add(reward.mul(PRECISION) / _totalStake);
     }
-    pool.lastRewardBlock = lastAccountedBlock;
   }
 
   /**
@@ -470,14 +471,11 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
       ) / PRECISION;
       _pending = _pending.add(rewardData.unclaimedReward);
 
-      if (shouldHarvest) {
-        rewardData.unclaimedReward = 0;
-        if (_pending > 0) {
-          _lockReward(IERC20Ext(rTokens[i]), _to, _pending);
-          emit Harvest(_to, _pid, rTokens[i], _pending, block.number);
-        }
-      } else {
-        rewardData.unclaimedReward = _pending;
+      rewardData.unclaimedReward = shouldHarvest ? 0 : _pending;
+
+      if (shouldHarvest && _pending > 0) {
+        _lockReward(IERC20Ext(rTokens[i]), _to, _pending);
+        emit Harvest(_to, _pid, rTokens[i], _pending, block.number);
       }
 
       // update user last reward per share to the latest pool reward per share
@@ -494,12 +492,8 @@ contract KyberFairLaunch is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
   }
 
   function _lockReward(IERC20Ext token, address _account, uint256 _amount) internal {
-    if (token == IERC20Ext(0)) {
-      // native token
-      rewardLocker.lock{ value: _amount }(token, _account, _amount);
-    } else {
-      rewardLocker.lock(token, _account, _amount);
-    }
+    uint256 value = (token == IERC20Ext(0)) ? _amount : 0;
+    rewardLocker.lock{ value: value }(token, _account, _amount);
   }
 
   /**
