@@ -406,7 +406,7 @@ function convertInputValues(inputValues) {
     if (typeof inputValue == 'number') {
       let BN = ethers.BigNumber;
       let numDecimals = countDecimals(inputValue);
-      if (numDecimals == 0) return new BN.from(inputValue);
+      if (numDecimals == 0) return new BN.from(inputValue).mul(ethers.constants.WeiPerEther);
       inputValue = inputValue * 10 ** numDecimals;
       inputValue = new BN.from(inputValue)
         .mul(ethers.constants.WeiPerEther)

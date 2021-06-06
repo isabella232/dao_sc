@@ -34,8 +34,7 @@ task('simulateProposal', 'simulate proposal execution')
         params: [
           {
             forking: {
-              jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
-              blockNumber: 12553400,
+              jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`
             },
           },
         ],
