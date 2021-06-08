@@ -328,17 +328,20 @@ async function instantiateContract(ethers, address, askImplementation = false) {
 async function pullABIFromEtherscan(address) {
   if (ETHERSCAN_KEY == undefined) {
     console.log('Require etherscan key, exiting...');
-    process.exit(0);
+    process.exit(1);
+  } else if (chainIdToEtherscanURL[chainId] == undefined) {
+    console.log(`Bad chain ID`);
+    process.exit(1);
   } else {
     let abiRequest = await fetch(
       `https://api${chainIdToEtherscanURL[chainId]}.etherscan.io/api?module=contract&action=getabi` +
         `&address=${address}` +
         `&apikey=${ETHERSCAN_KEY}`
     );
-    abi = await abiRequest.json();
+    let abi = await abiRequest.json();
     if (abi.status == '0') {
       console.log(abi.result);
-      process.exit(0);
+      process.exit(1);
     }
     return abi.result;
   }
@@ -346,7 +349,7 @@ async function pullABIFromEtherscan(address) {
 
 function getWriteFunctionsList(allFunctions) {
   let result = [];
-  for ([funcName, funcFrag] of Object.entries(allFunctions)) {
+  for (let [funcName, funcFrag] of Object.entries(allFunctions)) {
     if (!funcFrag.constant) result.push(funcName);
   }
   return result;
@@ -482,10 +485,10 @@ function parseValidateInput(jsonInput) {
   let now = Math.floor(new Date().getTime() / 1000);
   if (startTimestamp < now) {
     console.error(`Bad start timestamp, use value > ${now}`);
-    process.exit(0);
+    process.exit(1);
   } else if (endTimestamp <= startTimestamp) {
     console.error(`Bad start and end timestamps`);
-    process.exit(0);
+    process.exit(1);
   }
 }
 

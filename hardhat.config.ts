@@ -15,7 +15,8 @@ import './deployment/katanaDeployment.js';
 import './deployment/deployInternalGovernance.js';
 import './deployment/liquidityMining/deployLiquidityMining.js';
 import './deployment/sendBinaryProposal.js';
-import './deployment/simulateProposal.js';
+import './deployment/simFullProposal.js';
+import './deployment/simProposalExecution.js';
 import { accounts } from './test-wallets';
 
 const config: HardhatUserConfig = {

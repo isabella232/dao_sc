@@ -1,9 +1,9 @@
 require('@nomiclabs/hardhat-ethers');
-const path = require('path');
-const fs = require('fs');
+const {types} = require('hardhat/config');
 
 let kyberGov;
 
+let forkParams = {};
 let admin;
 let daoOperator;
 let kyberGovAddress;
@@ -14,35 +14,43 @@ let voterAddresses = [
   '0x0bfEc35a1A3550Deed3F6fC76Dde7FC412729a91',
   '0x06890D4c65A4cB75be73D7CCb4a8ee7962819E81',
 ];
+const chainIdToAddresses = {
+  1: {
+    kyberGov: '0x7ec8fcc26be7e9e85b57e73083e5fe0550d8a7fe',
+    daoOperator: '0xe6a7338cba0a1070adfb22c07115299605454713',
+  },
+  3: {
+    kyberGov: '0xef5a1404E312078cd16B7139a2257eD3bb42F787',
+    daoOperator: '0xDdF05698718bA8ed1c9abA198d38a825A64D69e2',
+  },
+  31337: {
+    kyberGov: '0x7ec8fcc26be7e9e85b57e73083e5fe0550d8a7fe',
+    daoOperator: '0xe6a7338cba0a1070adfb22c07115299605454713',
+  }
+};
 
-let txData;
+let oneEth;
+
 let startTimestamp;
 let endTimestamp;
 let proposalId;
 
-task('simulateProposal', 'simulate proposal execution')
-  .addParam('f', 'JSON file for binary proposal data info')
+task('simProposalExecution', 'simulate execution of existing proposal')
+  .addParam('id', 'Proposal ID')
   .setAction(async (taskArgs) => {
-    const jsonPath = path.join(__dirname, taskArgs.f);
-    const jsonInput = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-    parseInput(jsonInput);
+    getForkParams();
+    proposalId = taskArgs.id;
 
     // attempt mainnet forking
     try {
       await network.provider.request({
         method: 'hardhat_reset',
-        params: [
-          {
-            forking: {
-              jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`
-            },
-          },
-        ],
+        params: [forkParams],
       });
 
-      ONE = ethers.constants.One;
       oneEth = ethers.constants.WeiPerEther;
       [admin] = await ethers.getSigners();
+      getAddresses(await admin.getChainId());
       kyberGov = await ethers.getContractAt('KyberGovernance', kyberGovAddress);
     } catch (e) {
       console.log(e);
@@ -50,23 +58,9 @@ task('simulateProposal', 'simulate proposal execution')
     }
 
     daoOperator = await impersonateAcc(daoOperator);
-
-    // send proposal data
-    console.log(`Creating proposal...`);
-    try {
-      let tx = await daoOperator.sendTransaction({
-        to: kyberGovAddress,
-        gasLimit: 2000000,
-        value: 0,
-        data: txData,
-      });
-      txResult = await tx.wait();
-
-      await getProposalIdFromTx(txResult);
-    } catch (e) {
-      console.log(e);
-      process.exit(1);
-    }
+    console.log('Fetching proposal details...');
+    // get proposal timestamps
+    await getProposalDetails();
 
     // fast forward time
     await mineNewBlockAt(startTimestamp + 1);
@@ -87,8 +81,8 @@ task('simulateProposal', 'simulate proposal execution')
     }
 
     console.log(`Execute proposal...`);
-    executor = await ethers.getContractAt('DefaultExecutorWithTimelock', executorAddress);
-    timeDelay = await executor.getDelay();
+    let executor = await ethers.getContractAt('DefaultExecutorWithTimelock', executorAddress);
+    let timeDelay = await executor.getDelay();
     await mineNewBlockAt(endTimestamp + timeDelay.toNumber() + 1);
     try {
       await kyberGov.connect(admin).execute(proposalId);
@@ -100,13 +94,13 @@ task('simulateProposal', 'simulate proposal execution')
     process.exit(0);
   });
 
-function parseInput(jsonInput) {
-  txData = jsonInput['txData'];
-  startTimestamp = jsonInput['startTimestamp'];
-  endTimestamp = jsonInput['endTimestamp'];
-  kyberGovAddress = jsonInput['governance'];
-  executorAddress = jsonInput['executor'];
-  daoOperator = jsonInput['gnosisWallet'];
+function getForkParams() {
+  if (process.env.NODE_URL == undefined) {
+    console.log(`Missing NODE_URL in .env`);
+    process.exit(1);
+  }
+  forkParams['forking'] = {jsonRpcUrl: process.env.NODE_URL};
+  if (process.env.FORK_BLOCK) forkParams['forking']['blockNumber'] = Number(process.env.FORK_BLOCK);
 }
 
 async function impersonateAcc(user) {
@@ -126,12 +120,16 @@ async function impersonateAcc(user) {
   return await ethers.provider.getSigner(user);
 }
 
-async function getProposalIdFromTx(txResult) {
-  const iface = kyberGov.interface;
-  const decodedBinaryEvent = txResult.logs.map((log) => iface.decodeEventLog('BinaryProposalCreated', log.data));
-  const decodedGenericEvent = txResult.logs.map((log) => iface.decodeEventLog('GenericProposalCreated', log.data));
-  let proposalDetails = decodedBinaryEvent != undefined ? decodedBinaryEvent[0] : decodedGenericEvent[0];
-  proposalId = proposalDetails.proposalId;
+function getAddresses(chainId) {
+  kyberGovAddress = chainIdToAddresses[chainId]['kyberGov'];
+  daoOperator = chainIdToAddresses[chainId]['daoOperator'];
+}
+
+async function getProposalDetails() {
+  let result = await kyberGov.getProposalById(proposalId);
+  executorAddress = result.executor;
+  startTimestamp = result.startTime.toNumber();
+  endTimestamp = result.endTime.toNumber();
 }
 
 async function mineNewBlockAt(timestamp) {
