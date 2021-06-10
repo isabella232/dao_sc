@@ -14,7 +14,7 @@ dotenv.config();
 import './deployment/katanaDeployment.js';
 import './deployment/deployInternalGovernance.js';
 import './deployment/liquidityMining/deployLiquidityMining.js';
-import './deployment/sendBinaryProposal.js';
+import './deployment/createBinaryProposal.js';
 import './deployment/simFullProposal.js';
 import './deployment/simProposalExecution.js';
 import { accounts } from './test-wallets';

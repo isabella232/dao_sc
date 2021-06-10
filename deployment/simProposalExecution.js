@@ -1,5 +1,5 @@
 require('@nomiclabs/hardhat-ethers');
-const {types} = require('hardhat/config');
+const Helper = require('../test/testHelpers/hardhat');
 
 let kyberGov;
 
@@ -57,22 +57,22 @@ task('simProposalExecution', 'simulate execution of existing proposal')
       process.exit(1);
     }
 
-    daoOperator = await impersonateAcc(daoOperator);
+    daoOperator = await Helper.impersonateAcc(network, ethers.provider, daoOperator, admin);
     console.log('Fetching proposal details...');
     // get proposal timestamps
     await getProposalDetails();
 
     // fast forward time
-    await mineNewBlockAt(startTimestamp + 1);
+    await Helper.mineNewBlockAt(network, startTimestamp + 1);
 
     console.log(`Voting for proposal...`);
     for (let i = 0; i < voterAddresses.length; i++) {
-      let voter = await impersonateAcc(voterAddresses[i]);
+      let voter = await Helper.impersonateAcc(network, ethers.provider, voterAddresses[i], admin);
       await kyberGov.connect(voter).submitVote(proposalId, 1);
     }
 
     console.log(`Queueing proposal...`);
-    await mineNewBlockAt(endTimestamp + 1);
+    await Helper.mineNewBlockAt(network, endTimestamp + 1);
     try {
       await kyberGov.connect(admin).queue(proposalId);
     } catch (e) {
@@ -83,7 +83,7 @@ task('simProposalExecution', 'simulate execution of existing proposal')
     console.log(`Execute proposal...`);
     let executor = await ethers.getContractAt('DefaultExecutorWithTimelock', executorAddress);
     let timeDelay = await executor.getDelay();
-    await mineNewBlockAt(endTimestamp + timeDelay.toNumber() + 1);
+    await Helper.mineNewBlockAt(network, endTimestamp + timeDelay.toNumber() + 1);
     try {
       await kyberGov.connect(admin).execute(proposalId);
     } catch (e) {
@@ -103,23 +103,6 @@ function getForkParams() {
   if (process.env.FORK_BLOCK) forkParams['forking']['blockNumber'] = Number(process.env.FORK_BLOCK);
 }
 
-async function impersonateAcc(user) {
-  // fund account
-  try {
-    await admin.sendTransaction({
-      to: user,
-      gasLimit: 80000,
-      value: oneEth,
-    });
-  } catch (e) {}
-
-  await network.provider.request({
-    method: 'hardhat_impersonateAccount',
-    params: [user],
-  });
-  return await ethers.provider.getSigner(user);
-}
-
 function getAddresses(chainId) {
   kyberGovAddress = chainIdToAddresses[chainId]['kyberGov'];
   daoOperator = chainIdToAddresses[chainId]['daoOperator'];
@@ -130,11 +113,4 @@ async function getProposalDetails() {
   executorAddress = result.executor;
   startTimestamp = result.startTime.toNumber();
   endTimestamp = result.endTime.toNumber();
-}
-
-async function mineNewBlockAt(timestamp) {
-  await network.provider.request({
-    method: 'evm_mine',
-    params: [timestamp],
-  });
 }

@@ -1,7 +1,7 @@
 require('@nomiclabs/hardhat-ethers');
 const path = require('path');
 const fs = require('fs');
-
+const Helper = require('../test/testHelpers/hardhat');
 let kyberGov;
 
 let forkParams = {};
@@ -16,9 +16,6 @@ let voterAddresses = [
   '0x06890D4c65A4cB75be73D7CCb4a8ee7962819E81',
 ];
 
-let ONE;
-let oneEth;
-
 let txData;
 let startTimestamp;
 let endTimestamp;
@@ -32,22 +29,15 @@ task('simFullProposal', 'simulate proposal creation, voting and execution')
     parseInput(jsonInput);
 
     // attempt mainnet forking
-    try {
-      await network.provider.request({
-        method: 'hardhat_reset',
-        params: [forkParams]
-      });
+    await network.provider.request({
+      method: 'hardhat_reset',
+      params: [forkParams],
+    });
 
-      ONE = ethers.constants.One;
-      oneEth = ethers.constants.WeiPerEther;
-      [admin] = await ethers.getSigners();
-      kyberGov = await ethers.getContractAt('KyberGovernance', kyberGovAddress);
-    } catch (e) {
-      console.log(e);
-      process.exit(1);
-    }
+    [admin] = await ethers.getSigners();
+    kyberGov = await ethers.getContractAt('KyberGovernance', kyberGovAddress);
 
-    daoOperator = await impersonateAcc(daoOperator);
+    daoOperator = await Helper.impersonateAcc(network, ethers.provider, daoOperator, admin);
 
     // send proposal data
     console.log(`Creating proposal...`);
@@ -58,25 +48,25 @@ task('simFullProposal', 'simulate proposal creation, voting and execution')
         value: 0,
         data: txData,
       });
-      let txResult = await tx.wait();
+      await tx.wait();
 
-      await getProposalIdFromTx(txResult);
+      proposalId = await kyberGov.getProposalsCount();
     } catch (e) {
       console.log(e);
       process.exit(1);
     }
 
     // fast forward time
-    await mineNewBlockAt(startTimestamp + 1);
+    await Helper.mineNewBlockAt(network, startTimestamp + 1);
 
     console.log(`Voting for proposal...`);
     for (let i = 0; i < voterAddresses.length; i++) {
-      let voter = await impersonateAcc(voterAddresses[i]);
+      let voter = await Helper.impersonateAcc(network, ethers.provider, voterAddresses[i], admin);
       await kyberGov.connect(voter).submitVote(proposalId, 1);
     }
 
     console.log(`Queueing proposal...`);
-    await mineNewBlockAt(endTimestamp + 1);
+    await Helper.mineNewBlockAt(network, endTimestamp + 1);
     try {
       await kyberGov.connect(admin).queue(proposalId);
     } catch (e) {
@@ -87,7 +77,7 @@ task('simFullProposal', 'simulate proposal creation, voting and execution')
     console.log(`Execute proposal...`);
     let executor = await ethers.getContractAt('DefaultExecutorWithTimelock', executorAddress);
     let timeDelay = await executor.getDelay();
-    await mineNewBlockAt(endTimestamp + timeDelay.toNumber() + 1);
+    await Helper.mineNewBlockAt(network, endTimestamp + timeDelay.toNumber() + 1);
     try {
       await kyberGov.connect(admin).execute(proposalId);
     } catch (e) {
@@ -95,7 +85,6 @@ task('simFullProposal', 'simulate proposal creation, voting and execution')
       process.exit(1);
     }
     console.log(`All good! =)`);
-    process.exit(0);
   });
 
 function parseInput(jsonInput) {
@@ -109,38 +98,6 @@ function parseInput(jsonInput) {
     console.log(`Missing NODE_URL in .env`);
     process.exit(1);
   }
-  forkParams['forking'] = {'jsonRpcUrl': process.env.NODE_URL}
+  forkParams['forking'] = {jsonRpcUrl: process.env.NODE_URL};
   if (process.env.FORK_BLOCK) forkParams['forking']['blockNumber'] = Number(process.env.FORK_BLOCK);
-}
-
-async function impersonateAcc(user) {
-  // fund account
-  try {
-    await admin.sendTransaction({
-      to: user,
-      gasLimit: 80000,
-      value: oneEth,
-    });
-  } catch (e) {}
-
-  await network.provider.request({
-    method: 'hardhat_impersonateAccount',
-    params: [user],
-  });
-  return await ethers.provider.getSigner(user);
-}
-
-async function getProposalIdFromTx(txResult) {
-  const iface = kyberGov.interface;
-  const decodedBinaryEvent = txResult.logs.map((log) => iface.decodeEventLog('BinaryProposalCreated', log.data));
-  const decodedGenericEvent = txResult.logs.map((log) => iface.decodeEventLog('GenericProposalCreated', log.data));
-  let proposalDetails = decodedBinaryEvent != undefined ? decodedBinaryEvent[0] : decodedGenericEvent[0];
-  proposalId = proposalDetails.proposalId;
-}
-
-async function mineNewBlockAt(timestamp) {
-  await network.provider.request({
-    method: 'evm_mine',
-    params: [timestamp],
-  });
 }
