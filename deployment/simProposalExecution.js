@@ -1,11 +1,11 @@
 require('@nomiclabs/hardhat-ethers');
+const {assert} = require('chai');
 const Helper = require('../test/testHelpers/hardhat');
 
 let kyberGov;
 
 let forkParams = {};
 let admin;
-let daoOperator;
 let kyberGovAddress;
 let executorAddress;
 let voterAddresses = [
@@ -14,70 +14,91 @@ let voterAddresses = [
   '0x0bfEc35a1A3550Deed3F6fC76Dde7FC412729a91',
   '0x06890D4c65A4cB75be73D7CCb4a8ee7962819E81',
 ];
-const chainIdToAddresses = {
-  1: {
-    kyberGov: '0x7ec8fcc26be7e9e85b57e73083e5fe0550d8a7fe',
-    daoOperator: '0xe6a7338cba0a1070adfb22c07115299605454713',
-  },
-  3: {
-    kyberGov: '0xef5a1404E312078cd16B7139a2257eD3bb42F787',
-    daoOperator: '0xDdF05698718bA8ed1c9abA198d38a825A64D69e2',
-  },
-  31337: {
-    kyberGov: '0x7ec8fcc26be7e9e85b57e73083e5fe0550d8a7fe',
-    daoOperator: '0xe6a7338cba0a1070adfb22c07115299605454713',
-  }
+const chainIdToGovAddress = {
+  1: '0x7ec8fcc26be7e9e85b57e73083e5fe0550d8a7fe',
+  3: '0xef5a1404E312078cd16B7139a2257eD3bb42F787',
+  31337: '0x7ec8fcc26be7e9e85b57e73083e5fe0550d8a7fe',
 };
-
-let oneEth;
+const PENDING = 0;
+const CANCELED = 1;
+const ACTIVE = 2;
+const FAILED = 3;
+const SUCCEEDED = 4;
+const QUEUED = 5;
+const EXPIRED = 6;
+const EXEUCTED = 7;
+const FINALIZED = 8;
 
 let startTimestamp;
 let endTimestamp;
 let proposalId;
+let proposalState;
+let proposalCurrentState;
 
-task('simProposalExecution', 'simulate execution of existing proposal')
+task('simProposalExecution', 'simulate execution of an existing binary / generic proposal')
   .addParam('id', 'Proposal ID')
   .setAction(async (taskArgs) => {
     getForkParams();
     proposalId = taskArgs.id;
 
     // attempt mainnet forking
-    try {
-      await network.provider.request({
-        method: 'hardhat_reset',
-        params: [forkParams],
-      });
+    await network.provider.request({
+      method: 'hardhat_reset',
+      params: [forkParams],
+    });
 
-      oneEth = ethers.constants.WeiPerEther;
-      [admin] = await ethers.getSigners();
-      getAddresses(await admin.getChainId());
-      kyberGov = await ethers.getContractAt('KyberGovernance', kyberGovAddress);
-    } catch (e) {
-      console.log(e);
-      process.exit(1);
-    }
+    [admin] = await ethers.getSigners();
+    kyberGovAddress = chainIdToGovAddress[await admin.getChainId()];
+    kyberGov = await ethers.getContractAt('KyberGovernance', kyberGovAddress);
 
-    daoOperator = await Helper.impersonateAcc(network, ethers.provider, daoOperator, admin);
     console.log('Fetching proposal details...');
-    // get proposal timestamps
+    // get proposal details
     await getProposalDetails();
 
-    // fast forward time
-    await Helper.mineNewBlockAt(network, startTimestamp + 1);
-
-    console.log(`Voting for proposal...`);
-    for (let i = 0; i < voterAddresses.length; i++) {
-      let voter = await Helper.impersonateAcc(network, ethers.provider, voterAddresses[i], admin);
-      await kyberGov.connect(voter).submitVote(proposalId, 1);
+    switch (proposalState) {
+      case CANCELED:
+        console.log(`Proposal was canceled`);
+        process.exit(0);
+      case FAILED:
+        console.log(`Proposal already failed`);
+        process.exit(0);
+      case EXPIRED:
+        console.log(`Proposal has expired`);
+        process.exit(0);
+      case EXEUCTED:
+        console.log(`Proposal already executed`);
+        process.exit(0);
+      case FINALIZED:
+        console.log(`Generic proposal already finalized`);
+        process.exit(0);
     }
 
-    console.log(`Queueing proposal...`);
-    await Helper.mineNewBlockAt(network, endTimestamp + 1);
-    try {
-      await kyberGov.connect(admin).queue(proposalId);
-    } catch (e) {
-      console.log(e);
-      process.exit(1);
+    // fast forward time for pending proposal
+    if (proposalState == PENDING) await Helper.mineNewBlockAt(network, startTimestamp + 1);
+    if (proposalState <= ACTIVE) {
+      console.log(`Voting for proposal...`);
+      for (let i = 0; i < voterAddresses.length; i++) {
+        let voter = await Helper.impersonateAcc(network, ethers.provider, voterAddresses[i], admin);
+        await kyberGov.connect(voter).submitVote(proposalId, 1);
+      }
+      // forward time to end of proposal
+      await Helper.mineNewBlockAt(network, endTimestamp + 1);
+      proposalCurrentState = await kyberGov.getProposalState(proposalId);
+      if (proposalCurrentState == FINALIZED) {
+        console.log(`generic proposal finalized`);
+        process.exit(0);
+      }
+      assert(proposalCurrentState == SUCCEEDED, 'proposal failed to pass');
+    }
+
+    if (proposalState < QUEUED) {
+      console.log(`Queueing proposal...`);
+      try {
+        await kyberGov.connect(admin).queue(proposalId);
+      } catch (e) {
+        console.log(e);
+        process.exit(1);
+      }
     }
 
     console.log(`Execute proposal...`);
@@ -90,8 +111,8 @@ task('simProposalExecution', 'simulate execution of existing proposal')
       console.log(e);
       process.exit(1);
     }
-    console.log(`All good! =)`);
-    process.exit(0);
+    proposalCurrentState = await kyberGov.getProposalState(proposalId);
+    assert(proposalCurrentState == EXEUCTED, 'proposal state != EXECUTED');
   });
 
 function getForkParams() {
@@ -103,14 +124,10 @@ function getForkParams() {
   if (process.env.FORK_BLOCK) forkParams['forking']['blockNumber'] = Number(process.env.FORK_BLOCK);
 }
 
-function getAddresses(chainId) {
-  kyberGovAddress = chainIdToAddresses[chainId]['kyberGov'];
-  daoOperator = chainIdToAddresses[chainId]['daoOperator'];
-}
-
 async function getProposalDetails() {
   let result = await kyberGov.getProposalById(proposalId);
   executorAddress = result.executor;
   startTimestamp = result.startTime.toNumber();
   endTimestamp = result.endTime.toNumber();
+  proposalState = await kyberGov.getProposalState(proposalId);
 }
