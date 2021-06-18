@@ -8,8 +8,8 @@ import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {EnumerableSet} from '@openzeppelin/contracts/utils/EnumerableSet.sol';
-import {ILiquidationStrategy} from '../interfaces/liquidation/ILiquidationStrategy.sol';
 import {ILiquidationCallback} from '../interfaces/liquidation/ILiquidationCallback.sol';
+import {ILiquidationStrategyBase} from '../interfaces/liquidation/ILiquidationStrategyBase.sol';
 import {ILiquidationPriceOracleBase} from '../interfaces/liquidation/ILiquidationPriceOracleBase.sol';
 import {IPool} from '../interfaces/liquidation/IPool.sol';
 
@@ -29,10 +29,7 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
   }
 
   // list of tokens that can be liquidate to
-  EnumerableSet.AddressSet private _whitelistedTokens;
-
   EnumerableSet.AddressSet private _whitelistedLiquidators;
-
   EnumerableSet.AddressSet private _whitelistedPriceOracles;
 
   LiquidationSchedule private _liquidationSchedule;
@@ -42,10 +39,8 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
   event TreasuryPoolSet(address indexed treasuryPool);
   event RewardPoolSet(address indexed rewardPool);
   event LiquidationScheduleUpdated(uint128 startTime, uint64 repeatedPeriod, uint64 duration);
-  event WhitelistedTokenUpdated(address indexed token, bool indexed isAdd);
   event WhitelistedLiquidatorUpdated(address indexed liquidator, bool indexed isAdd);
   event WhitelistedPriceOracleUpdated(address indexed oracle, bool indexed isAdd);
-  event WhitelistedLiquidatorsEnabled(bool indexed isEnabled);
 
   constructor(
     address admin,
@@ -54,18 +49,26 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     uint128 startTime,
     uint64 repeatedPeriod,
     uint64 duration,
-    address[] memory whitelistedTokens,
-    address[] memory whitelistedLiquidators
+    address[] memory whitelistedLiquidators,
+    address[] memory whitelistedOracles
   ) PermissionAdmin(admin) {
     _setTreasuryPool(treasuryPoolAddress);
     _setRewardPool(rewardPoolAddress);
     _setLiquidationSchedule(startTime, repeatedPeriod, duration);
-    _updateWhitelistedTokens(whitelistedTokens, true);
     _updateWhitelistedLiquidators(whitelistedLiquidators, true);
+    _updateWhitelistedPriceOracles(whitelistedOracles, true);
   }
 
   receive() external payable {}
 
+  /**
+   * @dev Update liquidation schedule
+   *  to disable the liquidation: set repeatedPeriod to 0
+   *  to always enable the liquidation: set duration >= repeatedPeriod
+   * @param startTime: start time of the first liquidation schedule
+   * @param repeatedPeriod period in seconds that the schedule will be repeated
+   * @param duration duration of each schedule
+   */
   function updateLiquidationSchedule(
     uint128 startTime,
     uint64 repeatedPeriod,
@@ -84,79 +87,68 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     _setRewardPool(pool);
   }
 
-  function updateWhitelistedTokens(address[] calldata tokens, bool isAdd)
-    external override onlyAdmin
-  {
-    _updateWhitelistedTokens(tokens, isAdd);
-  }
-
   function updateWhitelistedLiquidators(address[] calldata liquidators, bool isAdd)
     external override onlyAdmin
   {
     _updateWhitelistedLiquidators(liquidators, isAdd);
   }
 
+  function updateWhitelistedOracles(address[] calldata oracles, bool isAdd)
+    external override onlyAdmin
+  {
+    _updateWhitelistedPriceOracles(oracles, isAdd);
+  }
+
   /** @dev Liquidate list of tokens to a single dest token,
   *   source token must not be a whitelisted token, dest must be a whitelisted token
   *   in case whitelisted liquidator is enabled, sender must be whitelisted
+  * @param oracle the whitelisted oracle that will be used to get conversion data
   * @param sources list of source tokens to liquidate
   * @param amounts list of amounts corresponding to each source token
   * @param recipient receiver of source tokens
-  * @param dest token to liquidate to, must be whitelisted
-  * @param minReturn minimum return of dest token for this liquidation
+  * @param dests list of tokens to liquidate to
+  * @param oracleHint hint for getting data from oracle
   * @param txData data to callback to recipient
   */
   function liquidate(
-    IERC20Ext[] memory sources,
-    uint256[] memory amounts,
+    ILiquidationPriceOracleBase oracle,
+    IERC20Ext[] calldata sources,
+    uint256[] calldata amounts,
     address payable recipient,
-    IERC20Ext dest,
-    uint256 minReturn,
-    bytes memory txData
+    IERC20Ext[] calldata dests,
+    bytes calldata oracleHint,
+    bytes calldata txData
   )
-    internal virtual nonReentrant
-    returns (uint256 destAmount)
+    external virtual override nonReentrant
+    returns (uint256[] memory destAmounts)
   {
-    require(isLiquidationEnabled(), 'only when liquidation enabled');
-    // Check whitelist tokens
-    require(
-      isWhitelistedToken(address(dest)),
-      'only liquidate to whitelisted tokens'
-    );
-    for(uint256 i = 0; i < sources.length; i++) {
-      require(
-        !isWhitelistedToken(address(sources[i])),
-        'cannot liquidate a whitelisted token'
-      );
-    }
+
+    require(isWhitelistedLiquidator(msg.sender), 'liquidate: only whitelisted liquidator');
+    require(isWhitelistedOracle(address(oracle)), 'liquidate: only whitelisted oracle');
+    require(isLiquidationEnabled(), 'liquidate: only when liquidation enabled');
+
     // request funds from treasury pool to recipient
     _treasuryPool.withdrawFunds(sources, amounts, recipient);
-    uint256 balanceDestBefore = getBalance(dest, address(this));
+    // request return data from oracle
+    uint256[] memory minReturns = oracle.getExpectedReturns(
+      msg.sender, sources, amounts, dests, oracleHint
+    );
+
+    uint256[] memory destBalances = new uint256[](dests.length);
+    for(uint256 i = 0; i < destBalances.length; i++) {
+      destBalances[i] = getBalance(dests[i], address(this));
+    }
+
     // callback for them to transfer dest amount to reward
     ILiquidationCallback(recipient).liquidationCallback(
-      msg.sender, sources, amounts, payable(address(this)), dest, txData
+      msg.sender, sources, amounts, payable(address(this)), dests, minReturns, txData
     );
-    destAmount = getBalance(dest, address(this)).sub(balanceDestBefore);
-    require(destAmount >= minReturn, 'insufficient dest amount');
-    _transferToken(dest, payable(rewardPool()), destAmount);
-  }
 
-  // Whitelisted tokens
-  function getWhitelistedTokensLength() external override view returns (uint256) {
-    return _whitelistedTokens.length();
-  }
-
-  function getWhitelistedTokenAt(uint256 index) external override view returns (address) {
-    return _whitelistedTokens.at(index);
-  }
-
-  function getAllWhitelistedTokens()
-    external view override returns (address[] memory tokens)
-  {
-    uint256 length = _whitelistedTokens.length();
-    tokens = new address[](length);
-    for(uint256 i = 0; i < length; i++) {
-      tokens[i] = _whitelistedTokens.at(i);
+    destAmounts = new uint256[](dests.length);
+    for(uint256 i = 0; i < destBalances.length; i++) {
+      destAmounts[i] = getBalance(dests[i], address(this)).sub(destBalances[i]);
+      require(destAmounts[i] >= minReturns[i], "liquidate: low return amount");
+      _transferToken(dests[i], payable(rewardPool()), destAmounts[i]);
     }
   }
 
@@ -181,7 +173,7 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
 
   // Whitelisted Price Orcales
   function getWhitelistedPriceOraclesLength() external override view returns (uint256) {
-    return _orca_whitelistedPriceOraclesles.length();
+    return _whitelistedPriceOracles.length();
   }
 
   function getWhitelistedPriceOracleAt(uint256 index) external override view returns (address) {
@@ -221,16 +213,16 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     return _rewardPool;
   }
 
-  function isWhitelistedToken(address token)
-    public view override returns (bool)
-  {
-    return _whitelistedTokens.contains(token);
-  }
-
   function isWhitelistedLiquidator(address liquidator)
     public view override returns (bool)
   {
     return _whitelistedLiquidators.contains(liquidator);
+  }
+
+  function isWhitelistedOracle(address oracle)
+    public view override returns (bool)
+  {
+    return _whitelistedPriceOracles.contains(oracle);
   }
 
   function isLiquidationEnabled() public view override returns (bool) {
@@ -242,9 +234,10 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
   function isLiquidationEnabledAt(uint256 timestamp) public override view returns (bool) {
     if (timestamp < block.timestamp) return false;
     LiquidationSchedule memory schedule = _liquidationSchedule;
+    if (schedule.repeatedPeriod == 0) return false;
     if (timestamp < uint256(schedule.startTime)) return false;
     uint256 timeInPeriod = (timestamp - uint256(schedule.startTime)) % uint256(schedule.repeatedPeriod);
-    return timeInPeriod < schedule.duration;
+    return timeInPeriod <= schedule.duration;
   }
 
   function _setTreasuryPool(address _pool) internal {
@@ -259,17 +252,6 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     emit RewardPoolSet(_pool);
   }
 
-  function _updateWhitelistedTokens(address[] memory _tokens, bool _isAdd) internal {
-    for(uint256 i = 0; i < _tokens.length; i++) {
-      if (_isAdd) {
-        _whitelistedTokens.add(_tokens[i]);
-      } else {
-        _whitelistedTokens.remove(_tokens[i]);
-      }
-      emit WhitelistedTokenUpdated(_tokens[i], _isAdd);
-    }
-  }
-
   function _updateWhitelistedLiquidators(address[] memory _liquidators, bool _isAdd) internal {
     for(uint256 i = 0; i < _liquidators.length; i++) {
       if (_isAdd) {
@@ -282,7 +264,7 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
   }
 
   function _updateWhitelistedPriceOracles(address[] memory _oracles, bool _isAdd) internal {
-    for(uint256 i = 0; i < _liquidators.length; i++) {
+    for(uint256 i = 0; i < _oracles.length; i++) {
       if (_isAdd) {
         _whitelistedPriceOracles.add(_oracles[i]);
       } else {
@@ -297,7 +279,6 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     uint64 _repeatedPeriod,
     uint64 _duration
   ) internal {
-    require(_repeatedPeriod > 0, 'repeatedPeriod == 0');
     _liquidationSchedule = LiquidationSchedule({
         startTime: _startTime,
         repeatedPeriod: _repeatedPeriod,

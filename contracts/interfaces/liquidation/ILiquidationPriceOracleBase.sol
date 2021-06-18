@@ -16,8 +16,7 @@ interface ILiquidationPriceOracleBase {
   function updatePremiumBps(
     address[] calldata liquidators,
     uint256[] calldata premiumBps
-  )
-    external;
+  ) external;
 
   /**
    * @dev Return list of min amounts that expected to get in return
@@ -29,13 +28,13 @@ interface ILiquidationPriceOracleBase {
    * @param hint hint for getting conversion rates
    * @return minAmountOuts min expected amount for each token out
    */
-  function getExpectedReturn(
+  function getExpectedReturns(
     address liquidator,
     IERC20Ext[] calldata tokenIns,
     uint256[] calldata amountIns,
     IERC20Ext[] calldata tokenOuts,
     bytes calldata hint
-  ) external view returns (uint256 minAmountOuts);
+  ) external view returns (uint256[] memory minAmountOuts);
 
   /**
    * @dev Return premium in BPS for a liquidator

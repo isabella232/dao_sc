@@ -126,35 +126,35 @@ abstract contract LiquidationStrategy is ILiquidationStrategy, PermissionAdmin, 
     internal virtual nonReentrant
     returns (uint256 destAmount)
   {
-    require(isLiquidationEnabled(), 'only when liquidation enabled');
-    // Check whitelist tokens
-    require(
-      isWhitelistedToken(address(dest)),
-      'only liquidate to whitelisted tokens'
-    );
-    for(uint256 i = 0; i < sources.length; i++) {
-      require(
-        !isWhitelistedToken(address(sources[i])),
-        'cannot liquidate a whitelisted token'
-      );
-    }
-    // check whitelisted liquidator if needed
-    if (isWhitelistLiquidatorEnabled()) {
-      require(
-        isWhitelistedLiquidator(msg.sender),
-        'only whitelisted liquidator'
-      );
-    }
-    // request funds from treasury pool to recipient
-    _treasuryPool.withdrawFunds(sources, amounts, recipient);
-    uint256 balanceDestBefore = getBalance(dest, address(this));
-    // callback for them to transfer dest amount to reward
-    ILiquidationCallback(recipient).liquidationCallback(
-      msg.sender, sources, amounts, payable(address(this)), dest, txData
-    );
-    destAmount = getBalance(dest, address(this)).sub(balanceDestBefore);
-    require(destAmount >= minReturn, 'insufficient dest amount');
-    _transferToken(dest, payable(rewardPool()), destAmount);
+  //   require(isLiquidationEnabled(), 'only when liquidation enabled');
+  //   // Check whitelist tokens
+  //   require(
+  //     isWhitelistedToken(address(dest)),
+  //     'only liquidate to whitelisted tokens'
+  //   );
+  //   for(uint256 i = 0; i < sources.length; i++) {
+  //     require(
+  //       !isWhitelistedToken(address(sources[i])),
+  //       'cannot liquidate a whitelisted token'
+  //     );
+  //   }
+  //   // check whitelisted liquidator if needed
+  //   if (isWhitelistLiquidatorEnabled()) {
+  //     require(
+  //       isWhitelistedLiquidator(msg.sender),
+  //       'only whitelisted liquidator'
+  //     );
+  //   }
+  //   // request funds from treasury pool to recipient
+  //   _treasuryPool.withdrawFunds(sources, amounts, recipient);
+  //   uint256 balanceDestBefore = getBalance(dest, address(this));
+  //   // callback for them to transfer dest amount to reward
+  //   ILiquidationCallback(recipient).liquidationCallback(
+  //     msg.sender, sources, amounts, payable(address(this)), dest, txData
+  //   );
+  //   destAmount = getBalance(dest, address(this)).sub(balanceDestBefore);
+  //   require(destAmount >= minReturn, 'insufficient dest amount');
+  //   _transferToken(dest, payable(rewardPool()), destAmount);
   }
 
   // Whitelisted tokens

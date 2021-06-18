@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 
 
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
+import {ILiquidationPriceOracleBase} from './ILiquidationPriceOracleBase.sol';
 
 /**
 * Use different logics to compute price oracle
@@ -10,30 +11,50 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 */
 interface ILiquidationStrategyBase {
 
-  /**
-   * @dev Update  for liquidators
-   */
-  function updateWhitelistLiquidator(
+  function updateTreasuryPool(address pool) external;
+  function updateRewardPool(address payable pool) external;
+  function updateWhitelistedLiquidators(
     address[] calldata liquidators,
     bool isAdd
-  )
-    external;
+  ) external;
+  function updateWhitelistedOracles(
+    address[] calldata oracles,
+    bool isAdd
+  ) external;
 
-  /**
-   * @dev Return list of min amounts that expected to get in return
-   *  when liquidating corresponding list of src tokens
-   * @param liquidator address of the liquidator
-   * @param tokenIns list of src tokens
-   * @param amountIns list of src amounts
-   * @param tokenOuts list of return tokens
-   * @param hint hint for getting conversion rates
-   * @return minAmountOuts min expected amount for each token out
-   */
-  function getExpectedReturn(
-    address liquidator,
-    IERC20Ext[] calldata tokenIns,
-    uint256[] calldata amountIns,
-    IERC20Ext[] calldata tokenOuts,
-    bytes calldata hint
-  ) external view returns (uint256 minAmountOuts);
+  function liquidate(
+    ILiquidationPriceOracleBase oracle,
+    IERC20Ext[] calldata sources,
+    uint256[] calldata amounts,
+    address payable recipient,
+    IERC20Ext[] calldata dests,
+    bytes calldata oracleHint,
+    bytes calldata txData
+  ) external returns (uint256[] memory destAmounts);
+
+  function isLiquidationEnabledAt(uint256 timestamp) external view returns (bool);
+  function isLiquidationEnabled() external view returns (bool);
+  function getLiquidationSchedule()
+    external view
+    returns(
+      uint128 startTime,
+      uint64 repeatedPeriod,
+      uint64 duration
+    );
+
+  function isWhitelistedLiquidator(address liquidator)
+    external view returns (bool);
+  function getWhitelistedLiquidatorsLength() external view returns (uint256);
+  function getWhitelistedLiquidatorAt(uint256 index) external view returns (address);
+  function getAllWhitelistedLiquidators()
+    external view returns (address[] memory liquidators);
+
+  function isWhitelistedOracle(address oracle)
+    external view returns (bool);
+  function getWhitelistedPriceOraclesLength() external view returns (uint256);
+  function getWhitelistedPriceOracleAt(uint256 index) external view returns (address);
+  function getAllWhitelistedPriceOracles()
+    external view returns (address[] memory oracles);
+  function treasuryPool() external view returns (address);
+  function rewardPool() external view returns (address);
 }
