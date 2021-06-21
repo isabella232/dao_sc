@@ -1,4 +1,5 @@
 {
+    "RewardLocker": "0x27B067F10321Fb9bF0397da80b9F09856f229971",
     "LockerDuration": 200000,
     "FairLaunchConfigs": [
         {

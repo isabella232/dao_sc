@@ -1,0 +1,21 @@
+{
+  "RewardLocker": "0x9f928e6A9465Ffd8Fdd8FB5f7d17c3F48EB23357",
+  "LockDuration": 1200000,
+  "FairLaunches": [
+    {
+      "address": "0x7e90d285c567e3EAb9858aaF28cEdA94a211a3DD",
+      "rewardTokens": [
+        "0x1C954E8fe737F99f68Fa1CCda3e51ebDB291948C",
+        "0x0000000000000000000000000000000000000000"
+      ],
+      "poolInfos": []
+    },
+    {
+      "address": "0xf0fb5bD9EB287A902Bd45b57AE4CF5F9DcEBe550",
+      "rewardTokens": [
+        "0x1C954E8fe737F99f68Fa1CCda3e51ebDB291948C"
+      ],
+      "poolInfos": []
+    }
+  ]
+}

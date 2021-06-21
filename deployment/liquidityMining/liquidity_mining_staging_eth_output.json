@@ -1,0 +1,51 @@
+{
+  "RewardLocker": "0xC3E2aED41ECdFB1ad41ED20D45377Da98D5489dD",
+  "LockDuration": 2000,
+  "FairLaunches": [
+    {
+      "address": "0xf530a090EF6481cfB33F98c63532E7745abab58A",
+      "rewardTokens": [
+        "0xdeFA4e8a7bcBA345F687a2f1456F5Edd9CE97202",
+        "0x0000000000000000000000000000000000000000"
+      ],
+      "poolInfos": [
+        {
+          "stakeToken": "0xf5426127fa776edafa6232d52f566bc3b32d15f9",
+          "startBlock": 12676100,
+          "endBlock": 12756100,
+          "rewardPerBlocks": [
+            10000000000,
+            15000000000
+          ]
+        },
+        {
+          "stakeToken": "0xda2d12bcc6343f84b627d18fb240ba73141b048a",
+          "startBlock": 12676100,
+          "endBlock": 12756100,
+          "rewardPerBlocks": [
+            10000000000,
+            12000000000
+          ]
+        },
+        {
+          "stakeToken": "0x9744bdde8dd5c6441f797ec9e04fb337ff41d8d9",
+          "startBlock": 12676100,
+          "endBlock": 12756100,
+          "rewardPerBlocks": [
+            15000000000,
+            16000000000
+          ]
+        },
+        {
+          "stakeToken": "0x23c0e614f660aeef5daf87de483931d145b7f5b8",
+          "startBlock": 12676100,
+          "endBlock": 12756100,
+          "rewardPerBlocks": [
+            20000000000,
+            10000000000
+          ]
+        }
+      ]
+    }
+  ]
+}

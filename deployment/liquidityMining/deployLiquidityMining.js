@@ -1,8 +1,6 @@
 require('@nomiclabs/hardhat-ethers');
 const fs = require('fs');
 const path = require('path');
-const configPath = path.join(__dirname, './liquidity_mining_mainnet_input.json');
-const configParams = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 let gasPrice;
 async function setContractForRewardToken(locker, token, fairLaunch) {
@@ -28,8 +26,11 @@ let fairLaunchConfigs = [];
 let outputFilename;
 
 task('deployLiquidityMining', 'deploy liquidity mining contracts')
+  .addParam('input', 'The input file path')
   .addParam('gasprice', 'The gas price (in gwei) for all transactions')
   .setAction(async (taskArgs, hre) => {
+    const configPath = path.join(__dirname, './' + taskArgs.input);
+    const configParams = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     parseInput(configParams);
 
     const BN = ethers.BigNumber;
@@ -84,10 +85,14 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
           contractData.rewardTokens[j],
           fairLaunch.address
         );
-        await rewardLocker.setVestingDuration(
-          contractData.rewardTokens[j], lockerDuration,
-          { gasPrice: gasPrice }
-        );
+        let vestDuration = await rewardLocker.vestingDurationPerToken(contractData.rewardTokens[j]);
+        if (vestDuration.eq(new BN.from(0))) {
+          console.log(`Set vesting duration for ${contractData.rewardTokens[j]} duration: ${lockerDuration}`)
+          await rewardLocker.setVestingDuration(
+            contractData.rewardTokens[j], lockerDuration,
+            { gasPrice: gasPrice }
+          );
+        }
       }
 
       console.log(`Add Pools to FairLaunch`);
@@ -107,6 +112,8 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
       }
     }
 
+    exportAddresses(outputData);
+
     console.log(`Verify reward locker at: ${rewardLocker.address}`);
     await verifyContract(hre, rewardLocker.address, [deployerAddress]);
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
@@ -117,7 +124,6 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
       );
     }
 
-    exportAddresses(outputData);
     console.log('setup completed');
     process.exit(0);
   }

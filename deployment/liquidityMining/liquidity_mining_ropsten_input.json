@@ -1,7 +1,9 @@
 {
+    "RewardLocker": "0xB3E093878350ED7b71cEF3897e1f68ABe29A4378",
     "LockerDuration": 200000,
     "FairLaunchConfigs": [
         {
+            "address": "0x8FdFBC24fD80Fdc4BEAFD781e88332C19fB4e2f4",
             "rewardTokens": [
                 "0x8B4DDF9F13f382aff76D262F6C8C50E6d7961b94",
                 "0x0000000000000000000000000000000000000000"
@@ -28,6 +30,7 @@
             ]
         },
         {
+            "address": "0x6C346326e6Bd89ef193C1aC5db1a87A55F208159",
             "rewardTokens": [
                 "0x8B4DDF9F13f382aff76D262F6C8C50E6d7961b94"
             ],
