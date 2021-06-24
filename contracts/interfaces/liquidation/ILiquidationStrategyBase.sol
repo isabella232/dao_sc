@@ -56,5 +56,5 @@ interface ILiquidationStrategyBase {
   function getAllWhitelistedPriceOracles()
     external view returns (address[] memory oracles);
   function treasuryPool() external view returns (address);
-  function rewardPool() external view returns (address);
+  function rewardPool() external view returns (address payable);
 }

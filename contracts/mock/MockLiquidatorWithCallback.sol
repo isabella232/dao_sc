@@ -25,23 +25,24 @@ contract MockLiquidatorWithCallback is Utils {
   }
 
   function liquidationCallback(
-    address /*caller*/,
+    address caller,
     IERC20Ext[] calldata sources,
     uint256[] calldata amounts,
     address payable recipient,
-    IERC20Ext dest,
-    bytes calldata txData
+    IERC20Ext[] calldata dests,
+    uint256[] calldata minReturns,
+    bytes calldata
   ) external {
-    if (shouldTestReentrancy) {
-      MockLiquidationStrategy(msg.sender).callLiquidate(
-        sources, amounts, recipient, dest, 0, txData
-      );
-    }
-    if (dest == ETH_TOKEN_ADDRESS) {
-      (bool success, ) = msg.sender.call { value: transferBackAmount }('');
-      require(success, 'transfer failed');
-    } else {
-      dest.safeTransfer(msg.sender, transferBackAmount);
-    }
+    // if (shouldTestReentrancy) {
+    //   MockLiquidationStrategy(msg.sender).callLiquidate(
+    //     sources, amounts, recipient, dest, 0, txData
+    //   );
+    // }
+    // if (dest == ETH_TOKEN_ADDRESS) {
+    //   (bool success, ) = msg.sender.call { value: transferBackAmount }('');
+    //   require(success, 'transfer failed');
+    // } else {
+    //   dest.safeTransfer(msg.sender, transferBackAmount);
+    // }
   }
 }

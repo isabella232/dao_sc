@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.7.6;
 
-import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
+import {PermissionAdmin, PermissionOperators} from '@kyber.network/utils-sc/contracts/PermissionOperators.sol';
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
@@ -13,7 +13,8 @@ import {ILiquidationStrategyBase} from '../interfaces/liquidation/ILiquidationSt
 import {ILiquidationPriceOracleBase} from '../interfaces/liquidation/ILiquidationPriceOracleBase.sol';
 import {IPool} from '../interfaces/liquidation/IPool.sol';
 
-abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, PermissionAdmin, Utils, ReentrancyGuard {
+abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, PermissionAdmin, PermissionOperators,
+  Utils, ReentrancyGuard {
 
   using SafeERC20 for IERC20Ext;
   using SafeMath for uint256;
@@ -35,6 +36,9 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
   LiquidationSchedule private _liquidationSchedule;
   IPool private _treasuryPool;
   address payable private _rewardPool;
+
+  bool public paused = false;
+  event Pause(address caller, bool isPaused);
 
   event TreasuryPoolSet(address indexed treasuryPool);
   event RewardPoolSet(address indexed rewardPool);
@@ -99,9 +103,19 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     _updateWhitelistedPriceOracles(oracles, isAdd);
   }
 
+  /**
+   * @dev Allow operator to pause the liquidation in case of emergency
+   *  It's faster and more flexible than waiting for a proposal
+   */
+  function setPause(bool isPause) external onlyOperator {
+    paused = isPause;
+    emit Pause(msg.sender, isPause);
+  }
+
   /** @dev Liquidate list of tokens to a single dest token,
   *   source token must not be a whitelisted token, dest must be a whitelisted token
   *   in case whitelisted liquidator is enabled, sender must be whitelisted
+  *   funds need to be transferred back to the LiquidationStrategy before transferring to RewardPool
   * @param oracle the whitelisted oracle that will be used to get conversion data
   * @param sources list of source tokens to liquidate
   * @param amounts list of amounts corresponding to each source token
@@ -122,13 +136,11 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     external virtual override nonReentrant
     returns (uint256[] memory destAmounts)
   {
-
+    require(!paused, 'liquidate: only when not paused');
     require(isWhitelistedLiquidator(msg.sender), 'liquidate: only whitelisted liquidator');
     require(isWhitelistedOracle(address(oracle)), 'liquidate: only whitelisted oracle');
     require(isLiquidationEnabled(), 'liquidate: only when liquidation enabled');
 
-    // request funds from treasury pool to recipient
-    _treasuryPool.withdrawFunds(sources, amounts, recipient);
     // request return data from oracle
     uint256[] memory minReturns = oracle.getExpectedReturns(
       msg.sender, sources, amounts, dests, oracleHint
@@ -139,16 +151,17 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
       destBalances[i] = getBalance(dests[i], address(this));
     }
 
-    // callback for them to transfer dest amount to reward
-    ILiquidationCallback(recipient).liquidationCallback(
-      msg.sender, sources, amounts, payable(address(this)), dests, minReturns, txData
-    );
+    // request funds from treasury pool to recipient
+    _treasuryPool.withdrawFunds(sources, amounts, recipient);
+    // callback to recipient to transfer dest amount to reward
+    // internal function to prevent stack too deep
+    _liquidationCallback(sources, amounts, recipient, dests, minReturns, txData);
 
     destAmounts = new uint256[](dests.length);
     for(uint256 i = 0; i < destBalances.length; i++) {
       destAmounts[i] = getBalance(dests[i], address(this)).sub(destBalances[i]);
-      require(destAmounts[i] >= minReturns[i], "liquidate: low return amount");
-      _transferToken(dests[i], payable(rewardPool()), destAmounts[i]);
+      require(destAmounts[i] >= minReturns[i], 'liquidate: low return amount');
+      _transferToken(dests[i], rewardPool(), destAmounts[i]);
     }
   }
 
@@ -209,7 +222,7 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     return address(_treasuryPool);
   }
 
-  function rewardPool() public override view returns (address) {
+  function rewardPool() public override view returns (address payable) {
     return _rewardPool;
   }
 
@@ -294,5 +307,18 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     } else {
       token.safeTransfer(recipient, amount);
     }
+  }
+
+  function _liquidationCallback(
+    IERC20Ext[] memory sources,
+    uint256[] memory amounts,
+    address payable recipient,
+    IERC20Ext[] memory dests,
+    uint256[] memory minReturns,
+    bytes calldata txData
+  ) internal {
+    ILiquidationCallback(recipient).liquidationCallback(
+      msg.sender, sources, amounts, address(this), dests, minReturns, txData
+    );
   }
 }

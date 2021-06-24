@@ -4,7 +4,7 @@ pragma solidity 0.7.6;
 import {ILiquidationPriceOracleBase} from '../../interfaces/liquidation/ILiquidationPriceOracleBase.sol';
 import {IChainLinkAggregatorProxy} from '../../interfaces/liquidation/thirdParty/IChainLinkAggregatorProxy.sol';
 import {IDMMPool} from '../../interfaces/liquidation/thirdParty/IDMMPool.sol';
-import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
+import {PermissionAdmin, PermissionOperators} from '@kyber.network/utils-sc/contracts/PermissionOperators.sol';
 import {Utils} from '@kyber.network/utils-sc/contracts/Utils.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
@@ -18,8 +18,9 @@ import {EnumerableSet} from '@openzeppelin/contracts/utils/EnumerableSet.sol';
 *     1. Remove liquidity given LP tokens
 *     2. Calculate price of LP tokens to a dest token
 *     3. Calculate price of normal tokens to a dest token
+*   It may not work for LPs of token with fees
 */
-contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, PermissionAdmin, Utils {
+contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, PermissionAdmin, PermissionOperators, Utils {
   using SafeMath for uint256;
   using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -58,12 +59,13 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   * @dev Update list of aggregator proxies for tokens
   *   Need to check the data carefully, Aggregator contract doesn't have function to
   *     get the supported token or base, so can not do any safe check here
+  *   For flexibility, it should be done by trusted operators
   */
   function updateAggregatorProxyData(
     address[] calldata tokens,
     address[] calldata quoteEthProxies,
     address[] calldata quoteUsdProxies
-  ) external onlyAdmin {
+  ) external onlyOperator {
 
     require(
       tokens.length == quoteEthProxies.length &&
@@ -107,6 +109,12 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   /**
    * @dev Return list of min amounts that expected to get in return
    *  when liquidating corresponding list of src tokens
+   *  3 types for hint: REMOVE_LIQUIDITY, LIQUIDATE_TOKENS, LIQUIDATE_LP
+   *  - REMOVE_LIQUIDITY: Take a single LP token, and return 2 tokens in the pool
+   *  - LIQUIDATE_TOKENS: Take list of tokens (must not be whitelisted tokens), then
+   *      liquidate them to a single whitelisted token
+   *  - LIQUIDATE_LP: Take list of LP tokens, then liquidate them to a single whitelisted token
+   *  Apply premium discount, can be a different value for each liquidator.
    * @param liquidator address of the liquidator
    * @param tokenIns list of src tokens
    * @param amountIns list of src amounts
@@ -129,8 +137,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
 
     (OracleHintType hintType) = abi.decode(hint, (OracleHintType));
 
+    // Remove Liquidity given a LP token
     if (hintType == OracleHintType.REMOVE_LIQUIDITY) {
-      // Only Remove Liquidity given a LP token
       require(tokenIns.length == 1, 'invalid number token in');
       require(tokenOuts.length == 2, 'invalid number token out');
       (IERC20Ext[2] memory tokens, uint256[4] memory amounts) = getExpectedTokensFromLp(
@@ -147,8 +155,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     require(tokenOuts.length == 1, 'invalid number token out');
     require(isWhitelistedToken(address(tokenOuts[0])), 'token out must be whitelisted');
 
+    // Liquidate list of tokens to a single dest token
     if (hintType == OracleHintType.LIQUIDATE_TOKENS) {
-      // Liquidate list of tokens to a single dest token
       for(uint256 i = 0; i < tokenIns.length; i++) {
         require(!isWhitelistedToken(address(tokenIns[i])), 'token in can not be a whitelisted token');
         uint256 rate = conversionRate(address(tokenIns[i]), address(tokenOuts[0]), amountIns[i]);
@@ -302,7 +310,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     if (proxy != IChainLinkAggregatorProxy(0)) {
       (, answer, , ,) = proxy.latestRoundData();
     }
-    if (answer < 0) return 0; // safe check in case ChainLink returns invalid data
+    if (answer <= 0) return 0; // safe check in case ChainLink returns invalid data
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteEthProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
@@ -318,7 +326,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     if (proxy != IChainLinkAggregatorProxy(0)) {
       (, answer, , ,) = proxy.latestRoundData();
     }
-    if (answer < 0) return 0; // safe check in case ChainLink returns invalid data
+    if (answer <= 0) return 0; // safe check in case ChainLink returns invalid data
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteUsdProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
