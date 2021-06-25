@@ -51,6 +51,7 @@ task('simFullProposal', 'simulate proposal creation, voting and execution')
       await tx.wait();
 
       proposalId = await kyberGov.getProposalsCount();
+      proposalId = proposalId.sub(ethers.constants.One);
     } catch (e) {
       console.log(e);
       process.exit(1);
@@ -77,7 +78,7 @@ task('simFullProposal', 'simulate proposal creation, voting and execution')
     console.log(`Execute proposal...`);
     let executor = await ethers.getContractAt('DefaultExecutorWithTimelock', executorAddress);
     let timeDelay = await executor.getDelay();
-    await Helper.mineNewBlockAt(network, endTimestamp + timeDelay.toNumber() + 1);
+    await Helper.mineNewBlockAt(network, endTimestamp + timeDelay.toNumber() + 5);
     try {
       await kyberGov.connect(admin).execute(proposalId);
     } catch (e) {

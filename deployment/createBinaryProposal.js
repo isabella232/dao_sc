@@ -153,6 +153,9 @@ function convertInputValues(inputValues) {
   return inputValues.map((inputValue) => {
     if (typeof inputValue == 'number') {
       let BN = ethers.BigNumber;
+      // use X.314159 to indicate X as the exact number to be used
+      if ((inputValue + "").split(".")[1] == "314159") return new BN.from(Math.trunc(inputValue));
+      // otherwise will multiply X by 1e18
       let numDecimals = countDecimals(inputValue);
       if (numDecimals == 0) return new BN.from(inputValue).mul(ethers.constants.WeiPerEther);
       inputValue = inputValue * 10 ** numDecimals;
