@@ -145,8 +145,10 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
         address(tokenIns[0]), amountIns[0]
       );
       if (tokens[0] == tokenOuts[0]) {
+        require(tokens[1] == tokenOuts[1], 'invalid token out 1');
         (minAmountOuts[0], minAmountOuts[1]) = (amounts[2], amounts[3]);
       } else {
+        require(tokens[1] == tokenOuts[0], 'invalid token out 0');
         (minAmountOuts[0], minAmountOuts[1]) = (amounts[3], amounts[2]);
       }
       return _applyPremiumFor(liquidator, minAmountOuts);
