@@ -8,7 +8,7 @@
                 "0xdeFA4e8a7bcBA345F687a2f1456F5Edd9CE97202",
                 "0x0000000000000000000000000000000000000000"
             ],
-            "poolInfo": [
+            "poolInfos": [
                 {
                     "stakeToken": "0xf5426127fa776edafa6232d52f566bc3b32d15f9",
                     "startBlock": 12676100,

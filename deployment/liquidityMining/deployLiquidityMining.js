@@ -2,6 +2,8 @@ require('@nomiclabs/hardhat-ethers');
 const fs = require('fs');
 const path = require('path');
 
+const zeroAddress = "0x0000000000000000000000000000000000000000";
+
 let gasPrice;
 async function setContractForRewardToken(locker, token, fairLaunch) {
   let addresses = await locker.getRewardContractsPerToken(token);
@@ -53,7 +55,8 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
     }
     console.log(`RewardLocker address: ${rewardLocker.address}`);
     outputData["RewardLocker"] = rewardLocker.address;
-    outputData["LockDuration"] = lockerDuration;
+    outputData["LockerDuration"] = lockerDuration;
+    outputData["outputFilename"] = outputFilename;
 
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
       if (fairLaunchConfigs[i].address != undefined) {
@@ -71,7 +74,8 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
       console.log(`FairLaunch ${i}: ${fairLaunch.address}`);
     }
 
-    outputData["FairLaunches"] = fairLaunchConfigs;
+    outputData["FairLaunchConfigs"] = fairLaunchConfigs;
+    exportAddresses(outputData);
 
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
       let contractData = fairLaunchConfigs[i];
@@ -93,11 +97,17 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
             { gasPrice: gasPrice }
           );
         }
+        // if (contractData.rewardTokens[j] != zeroAddress) {
+        //   const Token = await ethers.getContractFactory('KyberNetworkTokenV2');
+        //   let token = await Token.attach(contractData.rewardTokens[j]);
+        //   await token.transfer(fairLaunch.address, new BN.from(10).pow(new BN.from(22)), { gasPrice: gasPrice });
+        // }
       }
 
       console.log(`Add Pools to FairLaunch`);
       for (let j = 0; j < contractData.poolInfos.length; j++) {
         let poolData = contractData.poolInfos[j];
+        if (poolData.stakeToken == zeroAddress || poolData.stakeToken == "" || poolData.stakeToken == undefined) continue;
         let poolExist = await fairLaunch.poolExists(poolData.stakeToken);
         if (poolExist == false) {
           await fairLaunch.addPool(
@@ -111,8 +121,6 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
         }
       }
     }
-
-    exportAddresses(outputData);
 
     console.log(`Verify reward locker at: ${rewardLocker.address}`);
     await verifyContract(hre, rewardLocker.address, [deployerAddress]);
@@ -141,7 +149,7 @@ function parseInput(jsonInput) {
       rewardTokens: configs[i]["rewardTokens"],
       poolInfos: [],
     };
-    let poolInfoData = configs[i]["poolInfo"];
+    let poolInfoData = configs[i]["poolInfos"];
     if (poolInfoData != undefined) {
       for (let j = 0; j < poolInfoData.length; j++) {
         let poolData = poolInfoData[j];

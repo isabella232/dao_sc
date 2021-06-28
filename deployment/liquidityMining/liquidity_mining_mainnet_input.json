@@ -1,55 +1,55 @@
 {
-    "RewardLocker": "0x27B067F10321Fb9bF0397da80b9F09856f229971",
-    "LockerDuration": 200000,
-    "FairLaunchConfigs": [
+  "RewardLocker": "0xfab5186A194588F5AD5074Bd52659302906B4522",
+  "LockerDuration": 200000,
+  "outputFilename": "liquidity_mining_mainnet_input.json",
+  "FairLaunchConfigs": [
+    {
+      "address": "0x31De05f28568e3d3D612BFA6A78B356676367470",
+      "rewardTokens": [
+        "0xdeFA4e8a7bcBA345F687a2f1456F5Edd9CE97202"
+      ],
+      "poolInfos": [
         {
-            "address": "0x0a5443dF8d3b52c38B883dEb0284FbA1A9e4FFF9",
-            "rewardTokens": [
-                "0xdeFA4e8a7bcBA345F687a2f1456F5Edd9CE97202"
-            ],
-            "poolInfo": [
-                {
-                    "stakeToken": "",
-                    "startBlock": 12735000,
-                    "endBlock": 13335000,
-                    "rewardPerBlocks": [
-                        4200000000000000000
-                    ]
-                },
-                {
-                    "stakeToken": "",
-                    "startBlock": 12735000,
-                    "endBlock": 13335000,
-                    "rewardPerBlocks": [
-                        4200000000000000000
-                    ]
-                },
-                {
-                    "stakeToken": "",
-                    "startBlock": 12735000,
-                    "endBlock": 13335000,
-                    "rewardPerBlocks": [
-                        4200000000000000000
-                    ]
-                },
-                {
-                    "stakeToken": "",
-                    "startBlock": 12735000,
-                    "endBlock": 13335000,
-                    "rewardPerBlocks": [
-                        4200000000000000000
-                    ]
-                },
-                {
-                    "stakeToken": "",
-                    "startBlock": 12735000,
-                    "endBlock": 13335000,
-                    "rewardPerBlocks": [
-                        4200000000000000000
-                    ]
-                }
-            ]
+          "stakeToken": "",
+          "startBlock": 12735000,
+          "endBlock": 13335000,
+          "rewardPerBlocks": [
+            4206070000000000000
+          ]
+        },
+        {
+          "stakeToken": "",
+          "startBlock": 12735000,
+          "endBlock": 13335000,
+          "rewardPerBlocks": [
+            4206070000000000000
+          ]
+        },
+        {
+          "stakeToken": "",
+          "startBlock": 12735000,
+          "endBlock": 13335000,
+          "rewardPerBlocks": [
+            4206070000000000000
+          ]
+        },
+        {
+          "stakeToken": "",
+          "startBlock": 12735000,
+          "endBlock": 13335000,
+          "rewardPerBlocks": [
+            4206070000000000000
+          ]
+        },
+        {
+          "stakeToken": "",
+          "startBlock": 12735000,
+          "endBlock": 13335000,
+          "rewardPerBlocks": [
+            4206070000000000000
+          ]
         }
-    ],
-    "outputFilename": "liquidity_mining_mainnet_output.json"
+      ]
+    }
+  ]
 }

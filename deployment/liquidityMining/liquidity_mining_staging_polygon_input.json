@@ -6,7 +6,7 @@
                 "0x51E8D106C646cA58Caf32A47812e95887C071a62",
                 "0x0000000000000000000000000000000000000000"
             ],
-            "poolInfo": [
+            "poolInfos": [
                 {
                     "stakeToken": "0xe1dAd9E06380bC8962e259dDd6a5257A4f56d525",
                     "startBlock": 15958000,
@@ -31,7 +31,7 @@
             "rewardTokens": [
                 "0x51E8D106C646cA58Caf32A47812e95887C071a62"
             ],
-            "poolInfo": [
+            "poolInfos": [
                 {
                     "stakeToken": "0x0f0FC5a5029E3d155708356b422D22Cc29f8b3D4",
                     "startBlock": 15958000,
