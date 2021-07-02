@@ -4,41 +4,22 @@
   "outputFilename": "liquidity_mining_mumbai_input.json",
   "FairLaunchConfigs": [
     {
-      "address": "0x0a5443dF8d3b52c38B883dEb0284FbA1A9e4FFF9",
-      "rewardTokens": [
-        "0xFD1f9381Cb641Dc76Fe8087dbcf8ea84a2c77cbE",
-        "0x0000000000000000000000000000000000000000"
-      ],
-      "poolInfos": [
-        {
-          "stakeToken": "0x967a889dbf977dd9c7b79bf422f5fa50294e56fd",
-          "startBlock": 15658000,
-          "endBlock": 16058000,
-          "rewardPerBlocks": [
-            1000000000,
-            100000000
-          ]
-        },
-        {
-          "stakeToken": "0x0f7696c307a2eDb5b3Ff631Aba9D834BE6339e6B",
-          "startBlock": 15658000,
-          "endBlock": 16058000,
-          "rewardPerBlocks": [
-            1000000000,
-            100000000
-          ]
-        }
-      ]
-    },
-    {
-      "address": "0xeeaD7899A4f1B130d0473F79CbdA08F1362c5Bf0",
+      "address": "0x882233B197F9e50b1d41F510fD803a510470d7a6",
       "rewardTokens": [
         "0xFD1f9381Cb641Dc76Fe8087dbcf8ea84a2c77cbE"
       ],
       "poolInfos": [
         {
+          "stakeToken": "0x967a889dbf977dd9c7b79bf422f5fa50294e56fd",
+          "startBlock": 15664000,
+          "endBlock": 16058000,
+          "rewardPerBlocks": [
+            1000000000
+          ]
+        },
+        {
           "stakeToken": "0x801da4b550d1645f7ad3de8a5349a51b8dea48b8",
-          "startBlock": 15658000,
+          "startBlock": 15664000,
           "endBlock": 16058000,
           "rewardPerBlocks": [
             1000000000

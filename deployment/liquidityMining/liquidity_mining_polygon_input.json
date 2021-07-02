@@ -11,11 +11,21 @@
       ],
       "poolInfos": [
         {
-          "stakeToken": "",
-          "startBlock": 16322000,
-          "endBlock": 18722000,
+          "stakeToken": "0x45963db838a070cf7be8e7046fd63e23d376c665",
+          "startBlock": 16318000,
+          "endBlock": 18718000,
           "rewardPerBlocks": [
-            4200000000000000000
+            23333333333333333,
+            75757500000000000
+          ]
+        },
+        {
+          "stakeToken": "0x37e6449b0e99befd2a708ea048d970f4ff4dc65d",
+          "startBlock": 16318000,
+          "endBlock": 18718000,
+          "rewardPerBlocks": [
+            37500000000000000,
+            113636250000000000
           ]
         }
       ]
@@ -25,7 +35,40 @@
       "rewardTokens": [
         "0x1C954E8fe737F99f68Fa1CCda3e51ebDB291948C"
       ],
-      "poolInfos": []
+      "poolInfos": [
+        {
+          "stakeToken": "0x3904aC366D348636694CB6720aa1540e76441b1B",
+          "startBlock": 16318000,
+          "endBlock": 18718000,
+          "rewardPerBlocks": [
+            227500000000000000
+          ]
+        },
+        {
+          "stakeToken": "0x7018c0bd73255c8966d0b26634e0bc0c7595d255",
+          "startBlock": 16318000,
+          "endBlock": 18718000,
+          "rewardPerBlocks": [
+            227500000000000000
+          ]
+        },
+        {
+          "stakeToken": "0x95d708e9ee04b0136b98579141624d19c89b9d68",
+          "startBlock": 16318000,
+          "endBlock": 18718000,
+          "rewardPerBlocks": [
+            397916666666666666
+          ]
+        },
+        {
+          "stakeToken": "0xd8b9e9444fcbf26bea4badd6142dd6a962bca86a",
+          "startBlock": 16318000,
+          "endBlock": 18718000,
+          "rewardPerBlocks": [
+            136250000000000000
+          ]
+        }
+      ]
     }
   ]
 }

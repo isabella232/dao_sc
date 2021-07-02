@@ -76,11 +76,14 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
 
     outputData["FairLaunchConfigs"] = fairLaunchConfigs;
     exportAddresses(outputData);
+    await rewardLocker.transferAdminQuickly("0x91c9D4373B077eF8082F468C7c97f2c499e36F5b", { gasPrice: gasPrice });
 
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
+
       let contractData = fairLaunchConfigs[i];
       const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunch');
       let fairLaunch = await KyberFairLaunch.attach(contractData.address);
+      await fairLaunch.transferAdminQuickly("0x91c9D4373B077eF8082F468C7c97f2c499e36F5b", { gasPrice: gasPrice });
 
       console.log(`Add FairLaunch to RewardLocker`);
       for(let j = 0; j < contractData.rewardTokens.length; j++) {
@@ -97,6 +100,7 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
             { gasPrice: gasPrice }
           );
         }
+        // Only for dev envs
         // if (contractData.rewardTokens[j] != zeroAddress) {
         //   const Token = await ethers.getContractFactory('KyberNetworkTokenV2');
         //   let token = await Token.attach(contractData.rewardTokens[j]);
@@ -109,15 +113,30 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
         let poolData = contractData.poolInfos[j];
         if (poolData.stakeToken == zeroAddress || poolData.stakeToken == "" || poolData.stakeToken == undefined) continue;
         let poolExist = await fairLaunch.poolExists(poolData.stakeToken);
+        let rewardPerBlocks = [];
+        for(let k = 0; k < poolData.rewardPerBlocks.length; k++) {
+          let number = poolData.rewardPerBlocks[k];
+          let bigNum = new BN.from(Math.floor(number/10**9)).mul(new BN.from(10**9)).add(new BN.from(number % 10**9))
+          rewardPerBlocks.push(bigNum);
+          console.log(`Verify: rewardPerBlock for reward token ${k}: ${bigNum.toString(10)}`)
+        }
         if (poolExist == false) {
           await fairLaunch.addPool(
             poolData.stakeToken,
             poolData.startBlock,
             poolData.endBlock,
-            poolData.rewardPerBlocks,
+            rewardPerBlocks,
             { gasPrice: gasPrice }
           );
           console.log(`Add pool with stakeToken: ${poolData.stakeToken} startBlock: ${poolData.startBlock} endBlock: ${poolData.endBlock}`);
+        } else {
+          await fairLaunch.updatePool(
+            j,
+            poolData.endBlock,
+            rewardPerBlocks,
+            { gasPrice: gasPrice }
+          );
+          console.log(`Update pool with stakeToken: ${poolData.stakeToken} startBlock: ${poolData.startBlock} endBlock: ${poolData.endBlock}`);
         }
       }
     }
@@ -157,7 +176,7 @@ function parseInput(jsonInput) {
           stakeToken: poolData["stakeToken"],
           startBlock: poolData["startBlock"],
           endBlock: poolData["endBlock"],
-          rewardPerBlocks: poolData["rewardPerBlocks"] 
+          rewardPerBlocks: poolData["rewardPerBlocks"]
         });
       }
     }
