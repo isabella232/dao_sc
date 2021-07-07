@@ -21,18 +21,4 @@ contract MockLiquidationStrategy is LiquidationStrategyBase {
     admin, treasuryPoolAddress, rewardPoolAddress, startTime,
     repeatedPeriod, duration, whitelistedLiquidators, whitelistedOracles
   ) {}
-
-  function callLiquidate(
-    ILiquidationPriceOracleBase oracle,
-    IERC20Ext[] calldata sources,
-    uint256[] calldata amounts,
-    address payable recipient,
-    IERC20Ext[] calldata dests,
-    bytes calldata oracleHint,
-    bytes calldata txData
-  )
-    external returns (uint256[] memory destAmounts)
-  {
-    // destAmounts = super.liquidate(oracle, sources, amounts, recipient, dests, oracleHint, txData);
-  }
 }

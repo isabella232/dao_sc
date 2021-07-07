@@ -145,6 +145,7 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     uint256[] memory minReturns = oracle.getExpectedReturns(
       msg.sender, sources, amounts, dests, oracleHint
     );
+    require(minReturns.length == dests.length, 'liquidate: invalid return length');
 
     uint256[] memory destBalances = new uint256[](dests.length);
     for(uint256 i = 0; i < destBalances.length; i++) {
