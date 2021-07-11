@@ -11,7 +11,7 @@ interface IChainLinkAggregatorProxy {
     view
     returns (
       uint80 roundId,
-      int256 answer, // rate in PRECISION of 10^18
+      int256 answer, // rate in decimals of the token
       uint256 startedAt,
       uint256 updatedAt,
       uint80 answeredInRound

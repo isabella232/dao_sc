@@ -24,10 +24,10 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   using SafeMath for uint256;
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  // REMOVE_LIQUIDITY: take a single LP token and remove to 2 tokens in the poool
-  // LIQUIDATE_TOKENS: liquidate list of tokens to a single token
+  // REMOVE_LIQUIDITY: take a single LP token and remove to 2 tokens in the pool
   // LIQUIDATE_LP: liquidate list of LP tokens to a single token
-  enum OracleHintType { REMOVE_LIQUIDITY, LIQUIDATE_TOKENS, LIQUIDATE_LP }
+  // LIQUIDATE_TOKENS: liquidate list of tokens to a single token
+  enum OracleHintType { REMOVE_LIQUIDITY, LIQUIDATE_LP, LIQUIDATE_TOKENS }
 
   struct AggregatorProxyData {
     address quoteEthProxy;
@@ -38,14 +38,33 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
 
   mapping (address => AggregatorProxyData) internal _tokenData;
 
-  uint256 internal _defaultPremiumBps;
-  mapping (address => uint256) internal _groupPremiumBps;
+  struct PremiumData {
+    uint64 removeLiquidityBps;
+    uint64 liquidateLpBps;
+    uint64 liquidateTokensBps;
+  }
+  PremiumData internal _defaultPremiumData;
+  mapping (address => PremiumData) internal _groupPremiumData;
 
   // list of tokens that can be liquidate to
   EnumerableSet.AddressSet private _whitelistedTokens;
 
-  event DefaultPremiumBpsSet(uint256 indexed premiumBps);
-  event UpdateGroupPremiumBps(address indexed liquidator, uint256 indexed premiumBps);
+  event DefaultPremiumDataSet(
+    uint64 indexed removeLiquidityBps,
+    uint64 indexed liquidateLpBps,
+    uint64 indexed liquidateTokensBps
+  );
+  event UpdateGroupPremiumData(
+    address indexed liquidator,
+    uint64 indexed removeLiquidityBps,
+    uint64 indexed liquidateLpBps,
+    uint64 liquidateTokensBps
+  );
+  event UpdateAggregatorProxyData(
+    address indexed token,
+    address indexed quoteEthProxy,
+    address indexed quoteUsdProxy
+  );
   event WhitelistedTokenUpdated(address indexed token, bool indexed isAdd);
 
   constructor(
@@ -70,7 +89,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     require(
       tokens.length == quoteEthProxies.length &&
       tokens.length == quoteUsdProxies.length,
-      'invalid length data'
+      'invalid length'
     );
 
     uint8 quoteEthProxyDecimals;
@@ -88,16 +107,40 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
         quoteEthProxyDecimals: quoteEthProxyDecimals,
         quoteUsdProxyDecimals: quoteUsdProxyDecimals
       });
+      emit UpdateAggregatorProxyData(tokens[i], quoteEthProxies[i], quoteUsdProxies[i]);
     }
   }
 
-  function updatePremiumBps(address[] calldata liquidators, uint256[] calldata premiumBps)
-    external override onlyAdmin
+  function updateGroupPremiumData(
+    address[] calldata _liquidators,
+    uint64[] calldata _removeLiquidityBps,
+    uint64[] calldata _liquidateLpBps,
+    uint64[] calldata _liquidateTokensBps
+  )
+    external onlyAdmin
   {
-    require(liquidators.length == premiumBps.length, 'invalid length');
-    for(uint256 i = 0; i < liquidators.length; i++) {
-      _setGroupPremiumBps(liquidators[i], premiumBps[i]);
+    require(
+      _liquidators.length == _removeLiquidityBps.length &&
+      _liquidators.length == _liquidateLpBps.length &&
+      _liquidators.length == _liquidateTokensBps.length,
+      'invalid length'
+    );
+    for(uint256 i = 0; i < _liquidators.length; i++) {
+      _setGroupPremiumData(
+        _liquidators[i],
+        _removeLiquidityBps[i],
+        _liquidateLpBps[i],
+        _liquidateTokensBps[i]
+      );
     }
+  }
+
+  function updateDefaultPremiumData(
+    uint64 _removeLiquidityBps,
+    uint64 _liquidateLpBps,
+    uint64 _liquidateTokensBps
+  ) external onlyAdmin {
+    _setDefaultPremiumData(_removeLiquidityBps, _liquidateLpBps, _liquidateTokensBps);
   }
 
   function updateWhitelistedTokens(address[] calldata tokens, bool isAdd)
@@ -136,30 +179,55 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     minAmountOuts = new uint256[](tokenOuts.length);
 
     (OracleHintType hintType) = abi.decode(hint, (OracleHintType));
+    uint64 premiumBps;
 
     // Remove Liquidity given a LP token
     if (hintType == OracleHintType.REMOVE_LIQUIDITY) {
       require(tokenIns.length == 1, 'invalid number token in');
       require(tokenOuts.length == 2, 'invalid number token out');
-      (IERC20Ext[2] memory tokens, uint256[4] memory amounts) = getExpectedTokensFromLp(
+      (IERC20Ext[2] memory tokens, uint256[2] memory amounts) = getExpectedTokensFromLp(
         address(tokenIns[0]), amountIns[0]
       );
       if (tokens[0] == tokenOuts[0]) {
         require(tokens[1] == tokenOuts[1], 'invalid token out 1');
-        (minAmountOuts[0], minAmountOuts[1]) = (amounts[2], amounts[3]);
+        (minAmountOuts[0], minAmountOuts[1]) = (amounts[0], amounts[1]);
       } else {
+        require(tokens[0] == tokenOuts[1], 'invalid token out 1');
         require(tokens[1] == tokenOuts[0], 'invalid token out 0');
-        (minAmountOuts[0], minAmountOuts[1]) = (amounts[3], amounts[2]);
+        (minAmountOuts[0], minAmountOuts[1]) = (amounts[1], amounts[0]);
       }
-      return _applyPremiumFor(liquidator, minAmountOuts);
+      (premiumBps, ,) = getPremiumData(liquidator);
+      return _applyPremiumFor(minAmountOuts, premiumBps);
     }
 
     require(tokenOuts.length == 1, 'invalid number token out');
     require(isWhitelistedToken(address(tokenOuts[0])), 'token out must be whitelisted');
 
-    // Liquidate list of tokens to a single dest token
-    if (hintType == OracleHintType.LIQUIDATE_TOKENS) {
+    // Liquidate list of LP tokens to a single dest token
+    if (hintType == OracleHintType.LIQUIDATE_LP) {
       for(uint256 i = 0; i < tokenIns.length; i++) {
+        (IERC20Ext[2] memory tokens, uint256[2] memory amounts) = getExpectedTokensFromLp(
+          address(tokenIns[i]), amountIns[i]
+        );
+        // calc equivalent (tokens[0], amounts[2]) -> tokenOuts[0]
+        uint256 rate = conversionRate(address(tokens[0]), address(tokenOuts[0]), amounts[0]);
+        require(rate > 0, 'invalid conversion rate 0');
+        minAmountOuts[0] = minAmountOuts[0].add(
+          calcDestAmount(tokens[0], tokenOuts[0], amounts[0], rate)
+        );
+        // calc equivalent (tokens[1], amounts[3]) -> tokenOuts[0]
+        rate = conversionRate(address(tokens[1]), address(tokenOuts[0]), amounts[1]);
+        require(rate > 0, 'invalid conversion rate 1');
+        minAmountOuts[0] = minAmountOuts[0].add(
+          calcDestAmount(tokens[1], tokenOuts[0], amounts[1], rate)
+        );
+      }
+      (, premiumBps, ) = getPremiumData(liquidator);
+      return _applyPremiumFor(minAmountOuts, premiumBps);
+    }
+
+    // Liquidate list of tokens to a single dest token
+    for(uint256 i = 0; i < tokenIns.length; i++) {
         require(!isWhitelistedToken(address(tokenIns[i])), 'token in can not be a whitelisted token');
         uint256 rate = conversionRate(address(tokenIns[i]), address(tokenOuts[0]), amountIns[i]);
         require(rate > 0, 'invalid conversion rate');
@@ -167,28 +235,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
           calcDestAmount(tokenIns[i], tokenOuts[0], amountIns[i], rate)
         );
       }
-      return _applyPremiumFor(liquidator, minAmountOuts);
-    }
-
-    // Liquidate list of LP tokens to a single dest token
-    for(uint256 i = 0; i < tokenIns.length; i++) {
-      (IERC20Ext[2] memory tokens, uint256[4] memory amounts) = getExpectedTokensFromLp(
-        address(tokenIns[i]), amountIns[i]
-      );
-      // calc equivalent (tokens[0], amounts[2]) -> tokenOuts[0]
-      uint256 rate = conversionRate(address(tokens[0]), address(tokenOuts[0]), amounts[2]);
-      require(rate > 0, 'invalid conversion rate 0');
-      minAmountOuts[0] = minAmountOuts[0].add(
-        calcDestAmount(tokens[0], tokenOuts[0], amounts[2], rate)
-      );
-      // calc equivalent (tokens[1], amounts[3]) -> tokenOuts[0]
-      rate = conversionRate(address(tokens[1]), address(tokenOuts[0]), amounts[3]);
-      require(rate > 0, 'invalid conversion rate 1');
-      minAmountOuts[0] = minAmountOuts[0].add(
-        calcDestAmount(tokens[1], tokenOuts[0], amounts[3], rate)
-      );
-    }
-    minAmountOuts = _applyPremiumFor(liquidator, minAmountOuts);
+      (, , premiumBps) = getPremiumData(liquidator);
+      minAmountOuts = _applyPremiumFor(minAmountOuts, premiumBps);
   }
 
   // Whitelisted tokens
@@ -214,7 +262,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
    * @dev Return expect amounts given pool and number of lp tokens
    *  TODO: should have a solution for token with fees, or just another contract to support
    * @return tokens [token0, token1]
-   * @return amounts [amount0, amount1, expectedAmount0, expectedAmount1s]
+   * @return amounts [expectedAmount0, expectedAmount1s]
    */
   function getExpectedTokensFromLp(
     address pool,
@@ -223,16 +271,16 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     public view
     returns (
       IERC20Ext[2] memory tokens,
-      uint256[4] memory amounts
+      uint256[2] memory amounts
     )
   {
     uint256 totalSupply = IERC20Ext(pool).totalSupply();
     (tokens[0], tokens[1]) = (IDMMPool(pool).token0(), IDMMPool(pool).token1());
-    (amounts[0], amounts[1]) = IDMMPool(pool).getReserves();
+    (uint256 amount0, uint256 amount1) = IDMMPool(pool).getReserves();
 
-    (amounts[2], amounts[3]) = (
-      amounts[0].mul(lpAmount) / totalSupply,
-      amounts[1].mul(lpAmount) / totalSupply
+    (amounts[0], amounts[1]) = (
+      amount0.mul(lpAmount) / totalSupply,
+      amount1.mul(lpAmount) / totalSupply
     );
   }
 
@@ -297,10 +345,26 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   function getTokenAggregatorProxyData(address token)
     external view returns (
       address quoteEthProxy,
-      address quoteUsdProxy
+      address quoteUsdProxy,
+      uint8 quoteEthDecimals,
+      uint8 quoteUsdDecimals
     )
   {
     (quoteEthProxy, quoteUsdProxy) = (_tokenData[token].quoteEthProxy, _tokenData[token].quoteUsdProxy);
+    (quoteEthDecimals, quoteUsdDecimals) = (_tokenData[token].quoteEthProxyDecimals, _tokenData[token].quoteUsdProxyDecimals);
+  }
+
+  function getDefaultPremiumData()
+    external view
+    returns (
+      uint64 removeLiquidityBps,
+      uint64 liquidateLpBps,
+      uint64 liquidateTokensBps
+    )
+  {
+    removeLiquidityBps = _defaultPremiumData.removeLiquidityBps;
+    liquidateLpBps = _defaultPremiumData.liquidateLpBps;
+    liquidateTokensBps = _defaultPremiumData.liquidateTokensBps;
   }
 
   /**
@@ -316,7 +380,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteEthProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
-      rate.div(10 ** (decimals - MAX_DECIMALS));
+      rate / (10 ** (decimals - MAX_DECIMALS));
   }
 
   /**
@@ -332,7 +396,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     rate = uint256(answer);
     uint256 decimals = uint256(_tokenData[token].quoteUsdProxyDecimals);
     rate = (decimals < MAX_DECIMALS) ? rate.mul(10 ** (MAX_DECIMALS - decimals)) :
-      rate.div(10 ** (decimals - MAX_DECIMALS));
+      rate / (10 ** (decimals - MAX_DECIMALS));
   }
 
   function isWhitelistedToken(address token)
@@ -341,9 +405,24 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     return _whitelistedTokens.contains(token);
   }
 
-  function getPremiumBps(address liquidator) public override view returns (uint256) {
-    uint256 premiumBps = _groupPremiumBps[liquidator];
-    return premiumBps > 0 ? premiumBps : _defaultPremiumBps;
+  function getPremiumData(address liquidator)
+    public view
+    returns (
+      uint64 removeLiquidityBps,
+      uint64 liquidateLpBps,
+      uint64 liquidateTokensBps
+    )
+  {
+    PremiumData memory data = _groupPremiumData[liquidator];
+    if (data.removeLiquidityBps == 0 && data.liquidateLpBps == 0 && data.liquidateTokensBps == 0) {
+      removeLiquidityBps = _defaultPremiumData.removeLiquidityBps;
+      liquidateLpBps = _defaultPremiumData.liquidateLpBps;
+      liquidateTokensBps = _defaultPremiumData.liquidateTokensBps;
+    } else {
+      removeLiquidityBps = data.removeLiquidityBps;
+      liquidateLpBps = data.liquidateLpBps;
+      liquidateTokensBps = data.liquidateTokensBps;
+    }
   }
 
   function _updateWhitelistedToken(address[] memory _tokens, bool _isAdd) internal {
@@ -357,26 +436,42 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     }
   }
 
-  function _applyPremiumFor(address liquidator, uint256[] memory amounts)
-    internal view
+  function _setDefaultPremiumData(
+    uint64 _removeLiquidityBps,
+    uint64 _liquidateLpBps,
+    uint64 _liquidateTokensBps
+  ) internal {
+    require(_removeLiquidityBps < BPS, 'invalid remove liquidity bps');
+    require(_liquidateLpBps < BPS, 'invalid liquidate lp bps');
+    require(_liquidateTokensBps < BPS, 'invalid liquidate tokens bps');
+    _defaultPremiumData.removeLiquidityBps = _removeLiquidityBps;
+    _defaultPremiumData.liquidateLpBps = _liquidateLpBps;
+    _defaultPremiumData.liquidateTokensBps = _liquidateTokensBps;
+    emit DefaultPremiumDataSet(_removeLiquidityBps, _liquidateLpBps, _liquidateTokensBps);
+  }
+
+  function _setGroupPremiumData(
+    address _liquidator,
+    uint64 _removeLiquidityBps,
+    uint64 _liquidateLpBps,
+    uint64 _liquidateTokensBps
+  ) internal {
+    require(_removeLiquidityBps < BPS, 'invalid remove liquidity bps');
+    require(_liquidateLpBps < BPS, 'invalid liquidate lp bps');
+    require(_liquidateTokensBps < BPS, 'invalid liquidate tokens bps');
+    _groupPremiumData[_liquidator].removeLiquidityBps = _removeLiquidityBps;
+    _groupPremiumData[_liquidator].liquidateLpBps = _liquidateLpBps;
+    _groupPremiumData[_liquidator].liquidateTokensBps = _liquidateTokensBps;
+    emit UpdateGroupPremiumData(_liquidator, _removeLiquidityBps, _liquidateLpBps, _liquidateTokensBps);
+  }
+
+  function _applyPremiumFor(uint256[] memory amounts, uint64 premiumBps)
+    internal pure
     returns (uint256[] memory finalAmounts)
   {
     finalAmounts = amounts;
-    uint256 premiumBps = getPremiumBps(liquidator);
     for(uint256 i = 0; i < finalAmounts.length; i++) {
-      finalAmounts[i] -= premiumBps.mul(finalAmounts[i]) / BPS;
+      finalAmounts[i] -= finalAmounts[i].mul(premiumBps) / BPS;
     }
-  }
-
-  function _setDefaultPremium(uint256 _premiumBps) internal {
-    require(_premiumBps < BPS, 'invalid premium bps');
-    _defaultPremiumBps = _premiumBps;
-    emit DefaultPremiumBpsSet(_premiumBps);
-  }
-
-  function _setGroupPremiumBps(address _liquidator, uint256 _premiumBps) internal {
-    require(_premiumBps < BPS, 'invalid premium bps');
-    _groupPremiumBps[_liquidator] = _premiumBps;
-    emit UpdateGroupPremiumBps(_liquidator, _premiumBps);
   }
 }

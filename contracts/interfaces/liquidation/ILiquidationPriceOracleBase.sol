@@ -11,14 +11,6 @@ import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 interface ILiquidationPriceOracleBase {
 
   /**
-   * @dev Update premium bps for liquidators
-   */
-  function updatePremiumBps(
-    address[] calldata liquidators,
-    uint256[] calldata premiumBps
-  ) external;
-
-  /**
    * @dev Return list of min amounts that expected to get in return
    *  when liquidating corresponding list of src tokens
    * @param liquidator address of the liquidator
@@ -35,10 +27,4 @@ interface ILiquidationPriceOracleBase {
     IERC20Ext[] calldata tokenOuts,
     bytes calldata hint
   ) external view returns (uint256[] memory minAmountOuts);
-
-  /**
-   * @dev Return premium in BPS for a liquidator
-   */
-  function getPremiumBps(address liquidator)
-    external view returns (uint256 premiumBps);
 }
