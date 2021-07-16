@@ -239,6 +239,10 @@ contract('LiquidationStrategy', function (accounts) {
       await expectRevert(strategy.updateLiquidationSchedule(100, 200, 300, {from: accounts[0]}), 'only admin');
     });
 
+    it('update - reverts repeated period is 0', async () => {
+      await expectRevert(strategy.updateLiquidationSchedule(100, 0, 300, {from: admin}), 'repeated period is 0');
+    });
+
     it('update - correct data and event', async () => {
       let tx = await strategy.updateLiquidationSchedule(120, 240, 100, {from: admin});
       let data = await strategy.getLiquidationSchedule();
@@ -254,18 +258,14 @@ contract('LiquidationStrategy', function (accounts) {
 
     it('test get liquidation enable', async () => {
       let currentTime = await Helper.getCurrentBlockTime();
-      await strategy.updateLiquidationSchedule(currentTime + 10, 240, 100, {from: admin});
-      for (let i = 0; i < 300; i++) {
-        Helper.assertEqual(
-          checkLiquidationEnabled(currentTime + i - 20, currentTime, currentTime + 10, 240, 100),
-          await strategy.isLiquidationEnabledAt(i + currentTime - 20)
-        );
-      }
       await strategy.updateLiquidationSchedule(120, 240, 100, {from: admin});
       Helper.assertEqual(
         checkLiquidationEnabled(currentTime, currentTime, 120, 240, 100),
         await strategy.isLiquidationEnabled()
       );
+      // timestamp < start timestamp
+      await strategy.updateLiquidationSchedule(currentTime + 10, 240, 100, {from: admin});
+      Helper.assertEqual(false, await strategy.isLiquidationEnabled());
     });
   });
 
@@ -314,7 +314,7 @@ contract('LiquidationStrategy', function (accounts) {
 
     it('reverts when not enabled', async () => {
       // duration is 0, so never enabled
-      await strategy.updateLiquidationSchedule(0, 0, 0, {from: admin});
+      await strategy.updateLiquidationSchedule(0, 1, 0, {from: admin});
       await strategy.updateWhitelistedLiquidators([accounts[0]], true, {from: admin});
       await expectRevert(
         strategy.liquidate(priceOracleStrategy.address, [], [], accounts[1], [zeroAddress], '0x', '0x', {
@@ -619,8 +619,8 @@ contract('LiquidationStrategy', function (accounts) {
 
 function checkLiquidationEnabled(timestamp, currentTime, startTime, repeatedPeriod, duration) {
   if (timestamp < currentTime) return false;
-  if (repeatedPeriod == 0) return false;
+  if (duration == 0) return false;
   if (timestamp < startTime) return false;
   let timeInPeriod = (timestamp - startTime) % repeatedPeriod;
-  return timeInPeriod <= duration;
+  return timeInPeriod < duration;
 }

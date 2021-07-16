@@ -10,8 +10,8 @@ const {zeroAddress, ethAddress} = require('./helper.js');
 const Helper = require('./helper.js');
 
 import {
-  KyberDmmChainLinkPriceOracle,
-  KyberDmmChainLinkPriceOracle__factory,
+  MockDmmChainLinkPriceOracle,
+  MockDmmChainLinkPriceOracle__factory,
   MockDmmPool,
   MockDmmPool__factory,
   MockChainkLink,
@@ -25,8 +25,8 @@ import {Zero} from '@ethersproject/constants';
 const BPS = BN.from(10000);
 const PRECISION = BN.from(10).pow(18);
 
-let DmmChainLinkPriceOracle: KyberDmmChainLinkPriceOracle__factory;
-let dmmChainLinkPriceOracle: KyberDmmChainLinkPriceOracle;
+let DmmChainLinkPriceOracle: MockDmmChainLinkPriceOracle__factory;
+let dmmChainLinkPriceOracle: MockDmmChainLinkPriceOracle;
 let ChainLink: MockChainkLink__factory;
 let DmmPool: MockDmmPool__factory;
 let Token: KyberNetworkTokenV2__factory;
@@ -41,24 +41,26 @@ let operator;
 let user;
 let token0: KyberNetworkTokenV2;
 let token1: KyberNetworkTokenV2;
+let weth: KyberNetworkTokenV2;
 
 describe('KyberDmmChainLinkPriceOracle', () => {
   const [admin, operator, user] = waffle.provider.getWallets();
 
   before('setup', async () => {
     DmmChainLinkPriceOracle = (await ethers.getContractFactory(
-      'KyberDmmChainLinkPriceOracle'
-    )) as KyberDmmChainLinkPriceOracle__factory;
+      'MockDmmChainLinkPriceOracle'
+    )) as MockDmmChainLinkPriceOracle__factory;
     ChainLink = (await ethers.getContractFactory('MockChainkLink')) as MockChainkLink__factory;
     DmmPool = (await ethers.getContractFactory('MockDmmPool')) as MockDmmPool__factory;
     Token = (await ethers.getContractFactory('KyberNetworkTokenV2')) as KyberNetworkTokenV2__factory;
     token0 = await Token.deploy();
     token1 = await Token.deploy();
+    weth = await Token.deploy();
   });
 
   describe('#update data', async () => {
     beforeEach('init contract', async () => {
-      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, []);
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
     });
 
     it('add/remove whitelist tokens', async () => {
@@ -241,7 +243,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
 
   describe('#get data from LP tokens', async () => {
     beforeEach('init contract', async () => {
-      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, []);
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
     });
 
     it('get expected tokens', async () => {
@@ -275,13 +277,18 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     let chainlink1EthProxy: MockChainkLink;
     let chainlink1UsdProxy: MockChainkLink;
 
+    let proxyEth0Decimal = 10;
+    let proxyUsd0Decimal = 10;
+    let proxyEth1Decimal = 18;
+    let proxyUsd1Decimal = 19;
+
     beforeEach('init contract', async () => {
-      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, []);
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
       await dmmChainLinkPriceOracle.connect(admin).addOperator(operator.address);
-      chainlink0EthProxy = await ChainLink.deploy(10);
-      chainlink0UsdProxy = await ChainLink.deploy(10);
-      chainlink1EthProxy = await ChainLink.deploy(18);
-      chainlink1UsdProxy = await ChainLink.deploy(19);
+      chainlink0EthProxy = await ChainLink.deploy(proxyEth0Decimal);
+      chainlink0UsdProxy = await ChainLink.deploy(proxyUsd0Decimal);
+      chainlink1EthProxy = await ChainLink.deploy(proxyEth1Decimal);
+      chainlink1UsdProxy = await ChainLink.deploy(proxyUsd1Decimal);
     });
 
     it('check rate over eth/usd', async () => {
@@ -292,17 +299,24 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           [chainlink0EthProxy.address, zeroAddress],
           [zeroAddress, chainlink1UsdProxy.address]
         );
+      // price of eth or weth over eth should be equal PRECISION
+      expect(await dmmChainLinkPriceOracle.getRateOverEth(ethAddress)).to.be.eql(PRECISION);
+      expect(await dmmChainLinkPriceOracle.getRateOverEth(weth.address)).to.be.eql(PRECISION);
+
       let rate = BN.from(123124);
       await chainlink0EthProxy.setAnswerData(rate);
       // need to multiply with 10**(18 - 10)
-      expect(await dmmChainLinkPriceOracle.getRateOverEth(token0.address)).to.be.eql(rate.mul(BN.from(10).pow(8)));
+      expect(await dmmChainLinkPriceOracle.getRateOverEth(token0.address)).to.be.eql(
+        convertToDecimals10(rate, proxyEth0Decimal)
+      );
       expect(await dmmChainLinkPriceOracle.getRateOverUsd(token0.address)).to.be.eql(BN.from(0));
 
       rate = BN.from(352341);
       await chainlink1UsdProxy.setAnswerData(rate);
       expect(await dmmChainLinkPriceOracle.getRateOverEth(token1.address)).to.be.eql(BN.from(0));
-      // need to divide by 10**(19 - 18)
-      expect(await dmmChainLinkPriceOracle.getRateOverUsd(token1.address)).to.be.eql(rate.div(BN.from(10)));
+      expect(await dmmChainLinkPriceOracle.getRateOverUsd(token1.address)).to.be.eql(
+        convertToDecimals10(rate, proxyUsd1Decimal)
+      );
 
       await dmmChainLinkPriceOracle
         .connect(operator)
@@ -316,11 +330,13 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       await chainlink1EthProxy.setAnswerData(rate);
       await chainlink1UsdProxy.setAnswerData(0);
 
-      expect(await dmmChainLinkPriceOracle.getRateOverEth(token1.address)).to.be.eql(rate);
+      expect(await dmmChainLinkPriceOracle.getRateOverEth(token1.address)).to.be.eql(
+        convertToDecimals10(rate, proxyEth1Decimal)
+      );
       expect(await dmmChainLinkPriceOracle.getRateOverUsd(token1.address)).to.be.eql(BN.from(0));
     });
 
-    it('check conversion rate - src or dest is eth', async () => {
+    it('test _getRateWithDestTokenData - src is eth or weth', async () => {
       // with eth
       await dmmChainLinkPriceOracle
         .connect(operator)
@@ -331,26 +347,19 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         );
 
       let rate = BN.from(142352);
-      await chainlink0EthProxy.setAnswerData(rate);
-      let expectedAnswer = rate.mul(BN.from(10).pow(8));
-      // dest is eth
-      expect(await dmmChainLinkPriceOracle.conversionRate(token0.address, ethAddress, BN.from(0))).to.be.eql(
-        expectedAnswer
+      // dest is eth or weth
+      expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(ethAddress, 0, 0)).to.be.eql(BN.from(0));
+      expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(ethAddress, rate, 0)).to.be.eql(
+        PRECISION.mul(PRECISION).div(rate)
       );
-      // dest is eth
-      let revertRate = PRECISION.mul(PRECISION).div(expectedAnswer);
-      // src is eth
-      expect(await dmmChainLinkPriceOracle.conversionRate(ethAddress, token0.address, BN.from(0))).to.be.eql(
-        revertRate
-      );
-      // src is eth, rate is 0
-      await chainlink0EthProxy.setAnswerData(0);
-      expect(await dmmChainLinkPriceOracle.conversionRate(ethAddress, token0.address, BN.from(0))).to.be.eql(
-        BN.from(0)
+
+      expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(weth.address, 0, 0)).to.be.eql(BN.from(0));
+      expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(weth.address, rate, 0)).to.be.eql(
+        PRECISION.mul(PRECISION).div(rate)
       );
     });
 
-    it('check conversion rate - rate quote eth is 0', async () => {
+    it('test _getRateWithDestTokenData - rate quote eth is 0', async () => {
       // with eth
       await dmmChainLinkPriceOracle
         .connect(operator)
@@ -364,22 +373,24 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         let usd0Rate = BN.from(Helper.getRandomInt(1, 1000000));
         let usd1Rate = BN.from(Helper.getRandomInt(1, 1000000));
 
-        await setChainlinkRates(
-          [chainlink0EthProxy, chainlink0UsdProxy, chainlink1EthProxy, chainlink1UsdProxy],
-          [BN.from(i % 2), usd0Rate, BN.from((i + 1) % 2), usd1Rate]
-        );
+        await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [BN.from(0), usd0Rate]);
 
-        // convert to decimals of 18
-        usd0Rate = usd0Rate.mul(BN.from(10).pow(8));
-        usd1Rate = usd1Rate.div(BN.from(10));
+        // convert to decimals 18
+        usd0Rate = convertToDecimals10(usd0Rate, proxyUsd0Decimal);
         let expectedRate = usd0Rate.mul(PRECISION).div(usd1Rate);
-        expect(await dmmChainLinkPriceOracle.conversionRate(token0.address, token1.address, BN.from(0))).to.be.eql(
+
+        // dest token rate over eth is 0
+        expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(token0.address, 0, usd1Rate)).to.be.eql(
+          expectedRate
+        );
+        // src token rate over eth is 0
+        expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(token0.address, 1000, usd1Rate)).to.be.eql(
           expectedRate
         );
       }
     });
 
-    it('check conversion rate - rate quote eth is 0', async () => {
+    it('check _getRateWithDestTokenData - rate quote usd is 0', async () => {
       // with eth
       await dmmChainLinkPriceOracle
         .connect(operator)
@@ -393,27 +404,24 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         let eth0Rate = BN.from(Helper.getRandomInt(1, 1000000));
         let eth1Rate = BN.from(Helper.getRandomInt(1, 1000000));
 
-        await setChainlinkRates(
-          [chainlink0EthProxy, chainlink0UsdProxy, chainlink1EthProxy, chainlink1UsdProxy],
-          [eth0Rate, BN.from(i % 2), eth1Rate, BN.from((i + 1) % 2)]
-        );
+        await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [eth0Rate, BN.from(0)]);
 
         // convert to decimals of 18
-        eth0Rate = eth0Rate.mul(BN.from(10).pow(8));
+        eth0Rate = convertToDecimals10(eth0Rate, proxyEth0Decimal);
         let expectedRate = eth0Rate.mul(PRECISION).div(eth1Rate);
-        expect(await dmmChainLinkPriceOracle.conversionRate(token0.address, token1.address, BN.from(0))).to.be.eql(
+
+        // dest rate over usd is 0
+        expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(token0.address, eth1Rate, 0)).to.be.eql(
+          expectedRate
+        );
+        // src rate over usd is 0
+        expect(await dmmChainLinkPriceOracle.getRateWithDestTokenData(token0.address, eth1Rate, 1000)).to.be.eql(
           expectedRate
         );
       }
     });
 
-    it('check conversion rate - average of rates over eth + usd', async () => {
-      // same token, rate is 1
-      expect(await dmmChainLinkPriceOracle.conversionRate(token0.address, token0.address, BN.from(0))).to.be.eql(
-        PRECISION
-      );
-
-      // with eth
+    it('check _getRateWithDestTokenData - average of rates over eth + usd', async () => {
       await dmmChainLinkPriceOracle
         .connect(operator)
         .updateAggregatorProxyData(
@@ -427,6 +435,141 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         let eth1Rate = BN.from(Helper.getRandomInt(1, 1000000));
         let usd0Rate = BN.from(Helper.getRandomInt(1, 1000000));
         let usd1Rate = BN.from(Helper.getRandomInt(1, 1000000));
+
+        await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [eth0Rate, usd0Rate]);
+
+        // convert to decimals of 18
+        eth0Rate = convertToDecimals10(eth0Rate, proxyEth0Decimal);
+        usd0Rate = convertToDecimals10(usd0Rate, proxyUsd0Decimal);
+        let expectedEthRate = eth0Rate.mul(PRECISION).div(eth1Rate);
+        let expectedUsdRate = usd0Rate.mul(PRECISION).div(usd1Rate);
+        let expectedRate = expectedEthRate.add(expectedUsdRate).div(BN.from(2));
+
+        let rateFromContract = await dmmChainLinkPriceOracle.getRateWithDestTokenData(
+          token0.address,
+          eth1Rate,
+          usd1Rate
+        );
+        expect(rateFromContract).to.be.eql(expectedRate);
+      }
+    });
+
+    it('check _getExpectedReturnFromToken - src is normal token', async () => {
+      await dmmChainLinkPriceOracle
+        .connect(operator)
+        .updateAggregatorProxyData(
+          [token0.address, token1.address],
+          [chainlink0EthProxy.address, chainlink1EthProxy.address],
+          [chainlink0UsdProxy.address, chainlink1UsdProxy.address]
+        );
+
+      // revert rate is 0
+      await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [BN.from(0), BN.from(0)]);
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturnFromToken(token0.address, 0, ethAddress, 0, 0, false)
+      ).to.be.revertedWith('0 aggregator rate');
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturnFromToken(token0.address, 0, weth.address, 0, 0, false)
+      ).to.be.revertedWith('0 aggregator rate');
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturnFromToken(token0.address, 0, token1.address, 0, 0, false)
+      ).to.be.revertedWith('0 aggregator rate');
+
+      for (let i = 0; i < 20; i++) {
+        let eth0Rate = BN.from(Helper.getRandomInt(1, 1000));
+        let eth1Rate = BN.from(Helper.getRandomInt(1, 1000));
+        let usd0Rate = BN.from(Helper.getRandomInt(1, 1000));
+        let usd1Rate = BN.from(Helper.getRandomInt(1, 1000));
+        let amount = BN.from(Helper.getRandomInt(1, 1000000000));
+
+        await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [eth0Rate, usd0Rate]);
+
+        // convert to decimals of 18
+        eth0Rate = convertToDecimals10(eth0Rate, proxyEth0Decimal);
+        usd0Rate = convertToDecimals10(usd0Rate, proxyUsd0Decimal);
+
+        let expectedReturn = calculateDestAmount(amount, await token0.decimals(), 18, eth0Rate);
+        let returnFromContract = await dmmChainLinkPriceOracle.getExpectedReturnFromToken(
+          token0.address,
+          amount,
+          ethAddress,
+          0,
+          0,
+          false
+        );
+        expect(returnFromContract).to.be.eql(expectedReturn);
+        returnFromContract = await dmmChainLinkPriceOracle.getExpectedReturnFromToken(
+          token0.address,
+          amount,
+          weth.address,
+          0,
+          0,
+          false
+        );
+        expect(returnFromContract).to.be.eql(expectedReturn);
+
+        let expectedEthRate = eth0Rate.mul(PRECISION).div(eth1Rate);
+        let expectedUsdRate = usd0Rate.mul(PRECISION).div(usd1Rate);
+        let expectedRate = expectedEthRate.add(expectedUsdRate).div(BN.from(2));
+        expectedReturn = calculateDestAmount(amount, await token0.decimals(), await token1.decimals(), expectedRate);
+        returnFromContract = await dmmChainLinkPriceOracle.getExpectedReturnFromToken(
+          token0.address,
+          amount,
+          token1.address,
+          eth1Rate,
+          usd1Rate,
+          false
+        );
+        expect(returnFromContract).to.be.eql(expectedReturn);
+      }
+    });
+
+    it('check _getExpectedReturnFromToken - src is LP token', async () => {
+      await dmmChainLinkPriceOracle
+        .connect(operator)
+        .updateAggregatorProxyData(
+          [token0.address, token1.address],
+          [chainlink0EthProxy.address, chainlink1EthProxy.address],
+          [chainlink0UsdProxy.address, chainlink1UsdProxy.address]
+        );
+
+      let dmmPool0 = await DmmPool.deploy();
+      let balance0 = BN.from(2312312312);
+      let balance1 = BN.from(12387334);
+      let totalSupply = BN.from(123456);
+      await dmmPool0.setData(token0.address, token1.address, balance0, balance1, totalSupply);
+
+      // token0 -> dest rate is 0
+      await setChainlinkRates([chainlink0EthProxy, chainlink0UsdProxy], [BN.from(0), BN.from(0)]);
+      // dest is eth/weth
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturnFromToken(dmmPool0.address, 0, ethAddress, 0, 0, true)
+      ).to.be.revertedWith('0 aggregator rate');
+      // dest is normal token
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturnFromToken(dmmPool0.address, 0, token1.address, 10, 20, true)
+      ).to.be.revertedWith('0 aggregator rate');
+
+      // token1 -> dest rate is 0
+      await setChainlinkRates(
+        [chainlink0EthProxy, chainlink0UsdProxy, chainlink1EthProxy, chainlink1UsdProxy],
+        [BN.from(10000), BN.from(10000), BN.from(0), BN.from(0)]
+      );
+      // dest is eth/weth
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturnFromToken(dmmPool0.address, 0, ethAddress, 0, 0, true)
+      ).to.be.revertedWith('0 aggregator rate');
+      // dest is normal token
+      await expect(
+        dmmChainLinkPriceOracle.getExpectedReturnFromToken(dmmPool0.address, 0, token0.address, 10, 20, true)
+      ).to.be.revertedWith('0 aggregator rate');
+
+      for (let i = 0; i < 20; i++) {
+        let eth0Rate = BN.from(Helper.getRandomInt(1, 100000));
+        let eth1Rate = BN.from(Helper.getRandomInt(1, 100000));
+        let usd0Rate = BN.from(Helper.getRandomInt(1, 100000));
+        let usd1Rate = BN.from(Helper.getRandomInt(1, 100000));
+        let amount = BN.from(Helper.getRandomInt(10, 1000));
 
         await setChainlinkRates(
           [chainlink0EthProxy, chainlink0UsdProxy, chainlink1EthProxy, chainlink1UsdProxy],
@@ -434,19 +577,93 @@ describe('KyberDmmChainLinkPriceOracle', () => {
         );
 
         // convert to decimals of 18
-        eth0Rate = eth0Rate.mul(BN.from(10).pow(8));
-        usd0Rate = usd0Rate.mul(BN.from(10).pow(8));
-        usd1Rate = usd1Rate.div(BN.from(10));
-        let expectedEthRate = eth0Rate.mul(PRECISION).div(eth1Rate);
-        let expectedUsdRate = usd0Rate.mul(PRECISION).div(usd1Rate);
-        let expectedRate = expectedEthRate.add(expectedUsdRate).div(BN.from(2));
+        eth0Rate = convertToDecimals10(eth0Rate, proxyEth0Decimal);
+        usd0Rate = convertToDecimals10(usd0Rate, proxyUsd0Decimal);
+        eth1Rate = convertToDecimals10(eth1Rate, proxyEth1Decimal);
+        usd1Rate = convertToDecimals10(usd1Rate, proxyUsd1Decimal);
 
-        let rateFromContract = await dmmChainLinkPriceOracle.conversionRate(
+        let expectedReturn = BN.from(0);
+        let returnFromContract = BN.from(0);
+
+        // token0 == dest token
+        returnFromContract = await dmmChainLinkPriceOracle.getExpectedReturnFromToken(
+          dmmPool0.address,
+          amount,
           token0.address,
-          token1.address,
-          BN.from(0)
+          eth0Rate,
+          usd0Rate,
+          true
         );
-        expect(rateFromContract).to.be.eql(expectedRate);
+        expectedReturn = amount.mul(balance0).div(totalSupply); // token0 -> dest
+        let rate1 = eth1Rate.mul(PRECISION).div(eth0Rate).add(usd1Rate.mul(PRECISION).div(usd0Rate)).div(BN.from(2));
+        let return1 = calculateDestAmount(
+          amount.mul(balance1).div(totalSupply),
+          await token1.decimals(),
+          await token0.decimals(),
+          rate1
+        );
+        expectedReturn = expectedReturn.add(return1);
+        expect(returnFromContract).to.be.eql(expectedReturn);
+
+        // token1 == dest token
+        returnFromContract = await dmmChainLinkPriceOracle.getExpectedReturnFromToken(
+          dmmPool0.address,
+          amount,
+          token1.address,
+          eth1Rate,
+          usd1Rate,
+          true
+        );
+        let rate0 = eth0Rate.mul(PRECISION).div(eth1Rate).add(usd0Rate.mul(PRECISION).div(usd1Rate)).div(BN.from(2));
+        expectedReturn = calculateDestAmount(
+          amount.mul(balance0).div(totalSupply),
+          await token0.decimals(),
+          await token1.decimals(),
+          rate0
+        );
+        expectedReturn = expectedReturn.add(
+          amount.mul(balance1).div(totalSupply) // token1 -> dest
+        );
+        expect(returnFromContract).to.be.eql(expectedReturn);
+
+        // both tokens are different from dest token
+        // also use average rate over eth and usd
+        let token2 = await Token.deploy();
+        let chainlink2EthProxy = await ChainLink.deploy(18);
+        let chainlink2UsdProxy = await ChainLink.deploy(18);
+        let eth2Rate = BN.from(Helper.getRandomInt(100, 100000));
+        let usd2Rate = BN.from(Helper.getRandomInt(100, 100000));
+
+        await setChainlinkRates([chainlink2EthProxy, chainlink2UsdProxy], [eth2Rate, usd2Rate]);
+
+        await dmmChainLinkPriceOracle
+          .connect(operator)
+          .updateAggregatorProxyData([token2.address], [chainlink2EthProxy.address], [chainlink2UsdProxy.address]);
+        returnFromContract = await dmmChainLinkPriceOracle.getExpectedReturnFromToken(
+          dmmPool0.address,
+          amount,
+          token2.address,
+          eth2Rate,
+          usd2Rate,
+          true
+        );
+        rate0 = eth0Rate.mul(PRECISION).div(eth2Rate).add(usd0Rate.mul(PRECISION).div(usd2Rate)).div(BN.from(2));
+        expectedReturn = calculateDestAmount(
+          amount.mul(balance0).div(totalSupply),
+          await token0.decimals(),
+          await token2.decimals(),
+          rate0
+        );
+        rate1 = eth1Rate.mul(PRECISION).div(eth2Rate).add(usd1Rate.mul(PRECISION).div(usd2Rate)).div(BN.from(2));
+        expectedReturn = expectedReturn.add(
+          calculateDestAmount(
+            amount.mul(balance1).div(totalSupply),
+            await token1.decimals(),
+            await token2.decimals(),
+            rate1
+          )
+        );
+        expect(returnFromContract).to.be.eql(expectedReturn);
       }
     });
   });
@@ -458,10 +675,9 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     let chainlink1UsdProxy: MockChainkLink;
     let dmmPool0: MockDmmPool;
     let dmmPool1: MockDmmPool;
-    let removeLiquidityHint = '';
 
     beforeEach('init contract', async () => {
-      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, []);
+      dmmChainLinkPriceOracle = await DmmChainLinkPriceOracle.deploy(admin.address, weth.address, []);
       await dmmChainLinkPriceOracle.connect(admin).addOperator(operator.address);
       chainlink0EthProxy = await ChainLink.deploy(10);
       chainlink0UsdProxy = await ChainLink.deploy(10);
@@ -642,7 +858,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           [token0.address],
           LIQUIDATE_LP
         )
-      ).to.be.revertedWith('invalid conversion rate 0');
+      ).to.be.revertedWith('0 aggregator rate');
       await dmmPool0.setData(token0.address, token1.address, 0, 0, 1);
       await expect(
         dmmChainLinkPriceOracle.getExpectedReturns(
@@ -652,7 +868,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           [token0.address],
           LIQUIDATE_LP
         )
-      ).to.be.revertedWith('invalid conversion rate 1');
+      ).to.be.revertedWith('0 aggregator rate');
     });
 
     it('test liquidate LPs', async () => {
@@ -778,7 +994,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
           [token0.address],
           LIQUIDATE_TOKENS
         )
-      ).to.be.revertedWith('invalid conversion rate');
+      ).to.be.revertedWith('0 aggregator rate');
     });
 
     it('test liquidate tokens', async () => {
@@ -902,4 +1118,9 @@ function calculateDestAmount(amount: BN, decimal0: number, decimal1: number, rat
   }
   // amount * rate / (PRECISION * 10**(decimal0-decimal1))
   return amount.mul(rate).div(PRECISION.mul(BN.from(10).pow(decimal0 - decimal1)));
+}
+
+function convertToDecimals10(amount: BN, decimals: number) {
+  if (decimals <= 18) return amount.mul(BN.from(10).pow(18 - decimals));
+  return amount.div(BN.from(10).pow(decimals - 18));
 }

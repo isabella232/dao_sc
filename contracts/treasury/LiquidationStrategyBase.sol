@@ -9,11 +9,10 @@ import {SafeMath} from '@openzeppelin/contracts/math/SafeMath.sol';
 import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {EnumerableSet} from '@openzeppelin/contracts/utils/EnumerableSet.sol';
 import {ILiquidationCallback} from '../interfaces/liquidation/ILiquidationCallback.sol';
-import {ILiquidationStrategyBase} from '../interfaces/liquidation/ILiquidationStrategyBase.sol';
-import {ILiquidationPriceOracleBase} from '../interfaces/liquidation/ILiquidationPriceOracleBase.sol';
+import {ILiquidationStrategyBase, ILiquidationPriceOracleBase} from '../interfaces/liquidation/ILiquidationStrategyBase.sol';
 import {IPool} from '../interfaces/liquidation/IPool.sol';
 
-abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, PermissionAdmin, PermissionOperators,
+abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, PermissionOperators,
   Utils, ReentrancyGuard {
 
   using SafeERC20 for IERC20Ext;
@@ -240,18 +239,11 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
   }
 
   function isLiquidationEnabled() public view override returns (bool) {
-    return isLiquidationEnabledAt(block.timestamp);
-  }
-
-  /** @dev Only support getting data for current or future timestamp
-  */
-  function isLiquidationEnabledAt(uint256 timestamp) public override view returns (bool) {
-    if (timestamp < block.timestamp) return false;
     LiquidationSchedule memory schedule = _liquidationSchedule;
-    if (schedule.repeatedPeriod == 0) return false;
-    if (timestamp < uint256(schedule.startTime)) return false;
-    uint256 timeInPeriod = (timestamp - uint256(schedule.startTime)) % uint256(schedule.repeatedPeriod);
-    return timeInPeriod <= schedule.duration;
+    if (schedule.duration == 0) return false;
+    if (block.timestamp < uint256(schedule.startTime)) return false;
+    uint256 timeInPeriod = (block.timestamp - uint256(schedule.startTime)) % uint256(schedule.repeatedPeriod);
+    return timeInPeriod < schedule.duration;
   }
 
   function _setTreasuryPool(address _pool) internal {
@@ -293,6 +285,7 @@ abstract contract LiquidationStrategyBase is ILiquidationStrategyBase, Permissio
     uint64 _repeatedPeriod,
     uint64 _duration
   ) internal {
+    require(_repeatedPeriod > 0, 'repeated period is 0');
     _liquidationSchedule = LiquidationSchedule({
         startTime: _startTime,
         repeatedPeriod: _repeatedPeriod,

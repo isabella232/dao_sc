@@ -20,7 +20,7 @@ import {EnumerableSet} from '@openzeppelin/contracts/utils/EnumerableSet.sol';
 *     3. Calculate price of normal tokens to a dest token
 *   It may not work for LPs of token with fees
 */
-contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, PermissionAdmin, PermissionOperators, Utils {
+contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, PermissionOperators, Utils {
   using SafeMath for uint256;
   using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -43,6 +43,8 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     uint64 liquidateLpBps;
     uint64 liquidateTokensBps;
   }
+
+  address public immutable weth;
   PremiumData internal _defaultPremiumData;
   mapping (address => PremiumData) internal _groupPremiumData;
 
@@ -69,8 +71,10 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
 
   constructor(
     address admin,
+    address wethAddress,
     address[] memory whitelistedTokens
   ) PermissionAdmin(admin) {
+    weth = wethAddress;
     _updateWhitelistedToken(whitelistedTokens, true);
   }
 
@@ -203,40 +207,34 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     require(tokenOuts.length == 1, 'invalid number token out');
     require(isWhitelistedToken(address(tokenOuts[0])), 'token out must be whitelisted');
 
-    // Liquidate list of LP tokens to a single dest token
-    if (hintType == OracleHintType.LIQUIDATE_LP) {
-      for(uint256 i = 0; i < tokenIns.length; i++) {
-        (IERC20Ext[2] memory tokens, uint256[2] memory amounts) = getExpectedTokensFromLp(
-          address(tokenIns[i]), amountIns[i]
-        );
-        // calc equivalent (tokens[0], amounts[2]) -> tokenOuts[0]
-        uint256 rate = conversionRate(address(tokens[0]), address(tokenOuts[0]), amounts[0]);
-        require(rate > 0, 'invalid conversion rate 0');
-        minAmountOuts[0] = minAmountOuts[0].add(
-          calcDestAmount(tokens[0], tokenOuts[0], amounts[0], rate)
-        );
-        // calc equivalent (tokens[1], amounts[3]) -> tokenOuts[0]
-        rate = conversionRate(address(tokens[1]), address(tokenOuts[0]), amounts[1]);
-        require(rate > 0, 'invalid conversion rate 1');
-        minAmountOuts[0] = minAmountOuts[0].add(
-          calcDestAmount(tokens[1], tokenOuts[0], amounts[1], rate)
+    uint256 tokenOutRateEth = getRateOverEth(address(tokenOuts[0]));
+    uint256 tokenOutRateUsd = getRateOverUsd(address(tokenOuts[0]));
+
+    for(uint256 i = 0; i < tokenIns.length; i++) {
+      if (hintType == OracleHintType.LIQUIDATE_TOKENS) {
+        require(
+          !isWhitelistedToken(address(tokenIns[i])),
+          'token in can not be a whitelisted token'
         );
       }
-      (, premiumBps, ) = getPremiumData(liquidator);
-      return _applyPremiumFor(minAmountOuts, premiumBps);
+      minAmountOuts[0] = minAmountOuts[0].add(
+        _getExpectedReturnFromToken(
+          tokenIns[i],
+          amountIns[i],
+          tokenOuts[0],
+          tokenOutRateEth,
+          tokenOutRateUsd,
+          hintType == OracleHintType.LIQUIDATE_LP
+        )
+      );
     }
 
-    // Liquidate list of tokens to a single dest token
-    for(uint256 i = 0; i < tokenIns.length; i++) {
-        require(!isWhitelistedToken(address(tokenIns[i])), 'token in can not be a whitelisted token');
-        uint256 rate = conversionRate(address(tokenIns[i]), address(tokenOuts[0]), amountIns[i]);
-        require(rate > 0, 'invalid conversion rate');
-        minAmountOuts[0] = minAmountOuts[0].add(
-          calcDestAmount(tokenIns[i], tokenOuts[0], amountIns[i], rate)
-        );
-      }
+    if (hintType == OracleHintType.LIQUIDATE_LP) {
+      (, premiumBps, ) = getPremiumData(liquidator);
+    } else {
       (, , premiumBps) = getPremiumData(liquidator);
-      minAmountOuts = _applyPremiumFor(minAmountOuts, premiumBps);
+    }
+    minAmountOuts = _applyPremiumFor(minAmountOuts, premiumBps);
   }
 
   // Whitelisted tokens
@@ -284,64 +282,6 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     );
   }
 
-  /**
-  *  @dev Get conversion rate from src to dest token given amount
-  *   For chainlink, amount is not needed
-  *   Fetch rates using both eth and usd as quote, then take the average
-  */
-  function conversionRate(
-    address src,
-    address dest,
-    uint256 /* amount */
-  )
-    public view returns(uint256 rate)
-  {
-    if (src == dest) return PRECISION;
-    if (dest == address(ETH_TOKEN_ADDRESS)) {
-      return getRateOverEth(src);
-    }
-
-    if (src == address(ETH_TOKEN_ADDRESS)) {
-      rate = getRateOverEth(dest);
-      if (rate > 0) rate = PRECISION.mul(PRECISION).div(rate);
-      return rate;
-    }
-
-    uint256 srcRate;
-    uint256 destRate;
-
-    uint256 rateQuoteEth;
-    uint256 rateQuoteUsd;
-
-    // get rate from eth quote
-    srcRate = getRateOverEth(src);
-    if (srcRate > 0) {
-      destRate = getRateOverEth(dest);
-      if (destRate > 0) {
-        rateQuoteEth = PRECISION.mul(srcRate).div(destRate);
-      }
-    }
-
-    // get rate from usd quote
-    srcRate = getRateOverUsd(src);
-    if (srcRate > 0) {
-      destRate = getRateOverUsd(dest);
-      if (destRate > 0) {
-        // update new rate if it is higher
-        rateQuoteUsd = PRECISION.mul(srcRate).div(destRate);
-      }
-    }
-
-    if (rateQuoteEth == 0) {
-      rate = rateQuoteUsd;
-    } else if (rateQuoteUsd == 0) {
-      rate = rateQuoteEth;
-    } else {
-      // average rate over eth and usd
-      rate = rateQuoteEth.add(rateQuoteUsd).div(2);
-    }
-  }
-
   function getTokenAggregatorProxyData(address token)
     external view returns (
       address quoteEthProxy,
@@ -351,7 +291,10 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     )
   {
     (quoteEthProxy, quoteUsdProxy) = (_tokenData[token].quoteEthProxy, _tokenData[token].quoteUsdProxy);
-    (quoteEthDecimals, quoteUsdDecimals) = (_tokenData[token].quoteEthProxyDecimals, _tokenData[token].quoteUsdProxyDecimals);
+    (quoteEthDecimals, quoteUsdDecimals) = (
+      _tokenData[token].quoteEthProxyDecimals,
+      _tokenData[token].quoteUsdProxyDecimals
+    );
   }
 
   function getDefaultPremiumData()
@@ -371,6 +314,7 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
   *   @dev Get token rate over eth with units of PRECISION
   */
   function getRateOverEth(address token) public view returns (uint256 rate) {
+    if (token == address(ETH_TOKEN_ADDRESS) || token == weth) return PRECISION;
     int256 answer;
     IChainLinkAggregatorProxy proxy = IChainLinkAggregatorProxy(_tokenData[token].quoteEthProxy);
     if (proxy != IChainLinkAggregatorProxy(0)) {
@@ -473,5 +417,107 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     for(uint256 i = 0; i < finalAmounts.length; i++) {
       finalAmounts[i] -= finalAmounts[i].mul(premiumBps) / BPS;
     }
+  }
+
+  /**
+  *   @dev Get expected return amount from src token given dest token data
+  *   Save gas when liquidating multiple tokens or LP tokens
+  */
+  function _getExpectedReturnFromToken(
+    IERC20Ext tokenIn,
+    uint256 amountIn,
+    IERC20Ext dest,
+    uint256 destRateEth,
+    uint256 destRateUsd,
+    bool isFromLpToken
+  )
+    internal view
+    returns (uint256 totalReturn)
+  {
+    bool isDestEth = dest == ETH_TOKEN_ADDRESS || dest == IERC20Ext(weth);
+    uint256 rate;
+
+    if (!isFromLpToken) {
+      rate = isDestEth ? getRateOverEth(address(tokenIn)) :
+        _getRateWithDestTokenData(address(tokenIn), destRateEth, destRateUsd);
+      require(rate > 0, '0 aggregator rate');
+      return calculateReturnAmount(amountIn, getDecimals(tokenIn), getDecimals(dest), rate);
+    }
+
+    (IERC20Ext[2] memory tokens, uint256[2] memory amounts) = getExpectedTokensFromLp(
+      address(tokenIn), amountIn
+    );
+
+    uint256 destTokenDecimals = getDecimals(dest);
+
+    // calc equivalent (tokens[0], amounts[0]) -> tokenOuts[0]
+    if (tokens[0] == dest) {
+      rate = PRECISION;
+      totalReturn = totalReturn.add(amounts[0]);
+    } else {
+      rate = isDestEth ? getRateOverEth(address(tokens[0])) :
+        _getRateWithDestTokenData(address(tokens[0]), destRateEth, destRateUsd);
+      require(rate > 0, '0 aggregator rate');
+      totalReturn = totalReturn.add(
+        calculateReturnAmount(amounts[0], getDecimals(tokens[0]), destTokenDecimals, rate)
+      );
+    }
+
+    // calc equivalent (tokens[1], amounts[1]) -> tokenOuts[0]
+    if (tokens[1] == dest) {
+      rate = PRECISION;
+      totalReturn = totalReturn.add(amounts[1]);
+    } else {
+      rate = isDestEth ? getRateOverEth(address(tokens[1])) :
+        _getRateWithDestTokenData(address(tokens[1]), destRateEth, destRateUsd);
+        require(rate > 0, '0 aggregator rate');
+      totalReturn = totalReturn.add(
+        calculateReturnAmount(amounts[1], getDecimals(tokens[1]), destTokenDecimals, rate)
+      );
+    }
+  }
+
+  /**
+  *   @dev Get rate from src token given dest token rates over eth and usd
+  *   It is used to save gas when liquidating multiple tokens or LP tokens
+  */
+  function _getRateWithDestTokenData(
+    address src,
+    uint256 destTokenRateEth,
+    uint256 destTokenRateUsd
+  ) internal view returns (uint256) {
+    if (src == address(ETH_TOKEN_ADDRESS) || src == weth) {
+      if (destTokenRateEth == 0) return 0;
+      return PRECISION.mul(PRECISION) / destTokenRateEth;
+    }
+
+    uint256 rateQuoteEth;
+    uint256 rateQuoteUsd;
+
+    if (destTokenRateEth > 0) {
+      uint256 srcTokenRateEth = getRateOverEth(src);
+      rateQuoteEth = PRECISION.mul(srcTokenRateEth) / destTokenRateEth;
+    }
+
+    if (destTokenRateUsd > 0) {
+      uint256 srcTokenRateUsd = getRateOverUsd(src);
+      rateQuoteUsd = PRECISION.mul(srcTokenRateUsd) / destTokenRateUsd;
+    }
+
+    if (rateQuoteEth == 0) return rateQuoteUsd;
+    if (rateQuoteUsd == 0) return rateQuoteEth;
+    return rateQuoteEth.add(rateQuoteUsd) / 2;
+  }
+
+  function calculateReturnAmount(
+    uint256 srcQty,
+    uint256 srcDecimals,
+    uint256 dstDecimals,
+    uint256 rate
+  ) internal pure returns (uint256) {
+    if (dstDecimals >= srcDecimals) {
+      return srcQty.mul(rate).mul(10**(dstDecimals - srcDecimals)) / PRECISION;
+    }
+    return srcQty.mul(rate) / (PRECISION.mul(10**(srcDecimals - dstDecimals)));
   }
 }

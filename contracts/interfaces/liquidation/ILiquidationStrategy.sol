@@ -13,7 +13,6 @@ interface ILiquidationStrategy {
   function enableWhitelistedLiquidators() external;
   function disableWhitelistedLiquidators() external;
 
-  function isLiquidationEnabledAt(uint256 timestamp) external view returns (bool);
   function isLiquidationEnabled() external view returns (bool);
   function getLiquidationSchedule()
     external view

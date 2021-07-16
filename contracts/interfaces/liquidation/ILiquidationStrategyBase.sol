@@ -32,7 +32,6 @@ interface ILiquidationStrategyBase {
     bytes calldata txData
   ) external returns (uint256[] memory destAmounts);
 
-  function isLiquidationEnabledAt(uint256 timestamp) external view returns (bool);
   function isLiquidationEnabled() external view returns (bool);
   function getLiquidationSchedule()
     external view
