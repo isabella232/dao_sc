@@ -6,4 +6,4 @@ const parseRewards = require('./merkleDist/parseRewards').parseRewards;
 const configPath = argv.f;
 const json = JSON.parse(fs.readFileSync(path.join(__dirname, configPath), { encoding: 'utf8' }))
 if (typeof json !== 'object') throw new Error('Invalid JSON');
-console.log(JSON.stringify(parseRewards(json)));
+console.log(JSON.stringify(parseRewards(json), null, 2));
