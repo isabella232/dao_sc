@@ -207,6 +207,13 @@ contract KyberDmmChainLinkPriceOracle is ILiquidationPriceOracleBase, Permission
     require(tokenOuts.length == 1, 'invalid number token out');
     require(isWhitelistedToken(address(tokenOuts[0])), 'token out must be whitelisted');
 
+    // special case to allow forwarding whitelisted token directly to reward pool
+    if (hintType == OracleHintType.LIQUIDATE_TOKENS && tokenIns.length == 1 && tokenIns[0] == tokenOuts[0]) {
+      minAmountOuts[0] = amountIns[0];
+      // no premium
+      return minAmountOuts;
+    }
+
     uint256 tokenOutRateEth = getRateOverEth(address(tokenOuts[0]));
     uint256 tokenOutRateUsd = getRateOverUsd(address(tokenOuts[0]));
 

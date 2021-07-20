@@ -970,8 +970,8 @@ describe('KyberDmmChainLinkPriceOracle', () => {
       await expect(
         dmmChainLinkPriceOracle.getExpectedReturns(
           user.address,
-          [token0.address],
-          [BN.from(0)],
+          [token0.address, token1.address],
+          [BN.from(0), BN.from(0)],
           [token0.address],
           LIQUIDATE_TOKENS
         )
@@ -1000,6 +1000,7 @@ describe('KyberDmmChainLinkPriceOracle', () => {
     it('test liquidate tokens', async () => {
       let token2 = await Token.deploy();
       await dmmChainLinkPriceOracle.connect(admin).updateWhitelistedTokens([token2.address], true);
+
       let chainlink2Eth = await ChainLink.deploy(10);
       let chainlink2Usd = await ChainLink.deploy(10);
       await dmmChainLinkPriceOracle
@@ -1065,6 +1066,18 @@ describe('KyberDmmChainLinkPriceOracle', () => {
             LIQUIDATE_TOKENS
           )
         ).to.be.eql([returnAmount]);
+
+        // test liquidate same whitelisted token
+        // test liquidate same whitelisted token
+        expect(
+          await dmmChainLinkPriceOracle.getExpectedReturns(
+            user.address,
+            [token2.address],
+            [amount0],
+            [token2.address],
+            LIQUIDATE_TOKENS
+          )
+        ).to.be.eql([amount0]);
       }
     });
   });
