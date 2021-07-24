@@ -7,8 +7,9 @@ contract MockDmmChainLinkPriceOracle is KyberDmmChainLinkPriceOracle {
   constructor(
     address admin,
     address _weth,
-    address[] memory whitelistedTokens
-  ) KyberDmmChainLinkPriceOracle(admin, _weth, whitelistedTokens) {}
+    address[] memory whitelistedTokens,
+    uint256 chainklinkValidDuration
+  ) KyberDmmChainLinkPriceOracle(admin, _weth, whitelistedTokens, chainklinkValidDuration) {}
 
   function getExpectedReturnFromToken(
     IERC20Ext tokenIn,
@@ -37,5 +38,18 @@ contract MockDmmChainLinkPriceOracle is KyberDmmChainLinkPriceOracle {
     uint256 destTokenRateUsd
   ) external view returns (uint256) {
     return _getRateWithDestTokenData(src, destTokenRateEth, destTokenRateUsd);
+  }
+
+  function calculateReturnAmount(
+    uint256 srcQty,
+    uint256 srcDecimals,
+    uint256 dstDecimals,
+    uint256 rate
+  ) external pure returns (uint256) {
+    return _calculateReturnAmount(srcQty, srcDecimals, dstDecimals, rate);
+  }
+
+  function getEncodedData(LiquidationType[] calldata types) external pure returns (bytes memory) {
+    return abi.encode(types);
   }
 }
