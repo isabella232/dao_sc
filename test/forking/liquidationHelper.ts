@@ -58,13 +58,13 @@ module.exports.setupPriceOracleContract = async function (admin: Wallet) {
   )) as MockDmmChainLinkPriceOracle__factory;
   let priceOracle = await DmmChainLink.deploy(admin.address, wethAddress, [kncAddress], validDuration, lpDiffThresold);
   await priceOracle.connect(admin).addOperator(admin.address);
-  await priceOracle.connect(admin).updateDefaultPremiumData(500, 500);
+  await priceOracle.connect(admin).updateDefaultPremiumData(200, 200);
   await priceOracle
     .connect(admin)
     .updateAggregatorProxyData(
-      [ethAddress, wethAddress, kncAddress, wbtcAddress, usdtAddress, usdcAddress, daiAddress],
-      [zeroAddress, zeroAddress, kncEthProxy, btcEthProxy, usdtEthProxy, usdcEthProxy, daiEthProxy],
-      [ethUsdProxy, ethUsdProxy, kncUsdProxy, btcUsdProxy, usdtUsdProxy, usdcUsdProxy, daiUsdProxy]
+      [kncAddress, wbtcAddress, usdtAddress, usdcAddress, daiAddress],
+      [kncEthProxy, btcEthProxy, usdtEthProxy, usdcEthProxy, daiEthProxy],
+      [kncUsdProxy, btcUsdProxy, usdtUsdProxy, usdcUsdProxy, daiUsdProxy]
     );
   return priceOracle;
 };

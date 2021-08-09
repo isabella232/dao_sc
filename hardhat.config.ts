@@ -14,6 +14,7 @@ dotenv.config();
 import './deployment/katanaDeployment.js';
 import './deployment/deployInternalGovernance.js';
 import './deployment/liquidityMining/deployLiquidityMining.js';
+import './deployment/deployLiquidationStrategy.js';
 import { accounts } from './test-wallets';
 
 const config: HardhatUserConfig = {
