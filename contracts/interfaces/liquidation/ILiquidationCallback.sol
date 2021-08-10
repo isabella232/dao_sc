@@ -11,6 +11,7 @@ interface ILiquidationCallback {
     uint256[] calldata amounts,
     address payable recipient,
     IERC20Ext dest,
-    bytes calldata
+    uint256 minReturn,
+    bytes calldata txData
   ) external;
 }

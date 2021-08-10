@@ -12,12 +12,10 @@ import {
   MockRewardLocker,
   KyberNetworkTokenV2,
   MockRewardLocker__factory,
-  KyberNetworkTokenV2__factory
+  KyberNetworkTokenV2__factory,
 } from '../../typechain';
 
-const MAX_ALLOWANCE = BN.from(2)
-  .pow(256)
-  .sub(1);
+const MAX_ALLOWANCE = BN.from(2).pow(256).sub(1);
 let PRECISION = BN.from(10).pow(18);
 const NATIVE_TOKEN_ADDRESS = constants.ZERO_ADDRESS;
 
@@ -32,7 +30,7 @@ interface RewardLockerFixture {
   rewardToken2: KyberNetworkTokenV2;
 }
 
-async function setupFixture ([admin, rewardContract]: Wallet[]): Promise<RewardLockerFixture> {
+async function setupFixture([admin, rewardContract]: Wallet[]): Promise<RewardLockerFixture> {
   const rewardLockerFactory = (await ethers.getContractFactory('MockRewardLocker')) as MockRewardLocker__factory;
   const rewardTokenFactory = (await ethers.getContractFactory('KyberNetworkTokenV2')) as KyberNetworkTokenV2__factory;
 
@@ -52,7 +50,7 @@ async function setupFixture ([admin, rewardContract]: Wallet[]): Promise<RewardL
   return {
     rewardLocker,
     rewardToken,
-    rewardToken2
+    rewardToken2,
   };
 }
 
@@ -84,7 +82,7 @@ describe('KyberRewardLocker', () => {
 
       expect(await rewardLocker.getRewardContractsPerToken(rewardToken.address)).to.eql([
         rewardContract.address,
-        rewardContract2.address
+        rewardContract2.address,
       ]);
 
       await expect(

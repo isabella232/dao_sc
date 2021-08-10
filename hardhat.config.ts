@@ -67,6 +67,15 @@ const INFURA_API_KEY: string = process.env.INFURA_API_KEY || '';
 const PRIVATE_KEY: string = process.env.PRIVATE_KEY || '';
 const ETHERSCAN_KEY: string = process.env.ETHERSCAN_KEY || '';
 const POLYGONSCAN_KEY: string = process.env.POLYGONSCAN_KEY || '';
+const ETH_NODE_URL: string = process.env.ETH_NODE_URL || '';
+const FORK_BLOCK: string = process.env.FORK_BLOCK || ''
+
+if (ETH_NODE_URL != '' && FORK_BLOCK != '') {
+  config.networks!.hardhat!.forking = {
+    url: ETH_NODE_URL,
+    blockNumber: parseInt(FORK_BLOCK)
+  }
+}
 
 if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
   config.networks!.kovan = {
