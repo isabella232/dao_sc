@@ -13,6 +13,8 @@ let voterAddresses = [
   '0x3Be35d6C5FFeAe62CB3f6CB8a23653b6501A060d',
   '0x0bfEc35a1A3550Deed3F6fC76Dde7FC412729a91',
   '0x06890D4c65A4cB75be73D7CCb4a8ee7962819E81',
+  '0xE80499e88B89898a22Be5b9dbba5c632Fa27F89a',
+  '0x9db3207E49595F65B59B7E6669cEFfbbE45A7a7f'
 ];
 const chainIdToGovAddress = {
   1: '0x7ec8fcc26be7e9e85b57e73083e5fe0550d8a7fe',
@@ -26,7 +28,7 @@ const FAILED = 3;
 const SUCCEEDED = 4;
 const QUEUED = 5;
 const EXPIRED = 6;
-const EXEUCTED = 7;
+const EXECUTED = 7;
 const FINALIZED = 8;
 
 let startTimestamp;
@@ -65,7 +67,7 @@ task('simProposalExecution', 'simulate execution of an existing binary / generic
       case EXPIRED:
         console.log(`Proposal has expired`);
         process.exit(0);
-      case EXEUCTED:
+      case EXECUTED:
         console.log(`Proposal already executed`);
         process.exit(0);
       case FINALIZED:
@@ -112,7 +114,7 @@ task('simProposalExecution', 'simulate execution of an existing binary / generic
       process.exit(1);
     }
     proposalCurrentState = await kyberGov.getProposalState(proposalId);
-    assert(proposalCurrentState == EXEUCTED, 'proposal state != EXECUTED');
+    assert(proposalCurrentState == EXECUTED, 'proposal state != EXECUTED');
   });
 
 function getForkParams() {
