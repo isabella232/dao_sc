@@ -1,6 +1,4 @@
 const {expectEvent, expectRevert} = require('@openzeppelin/test-helpers');
-const {assert} = require('chai');
-const {hasNumericValueDependencies} = require('mathjs');
 const Helper = require('./helper.js');
 
 let BN;
@@ -29,6 +27,7 @@ let kyberProxy;
 let kyberGovernance;
 let kyberStaking;
 let rewardsDistributor;
+let poolMaster;
 
 let precisionUnits;
 
@@ -293,8 +292,8 @@ contract('PoolMaster', function () {
 
     // liquidate ETH
     await poolMaster.connect(operator).liquidateTokensToKnc([ethAddress], [ZERO]);
-    adminFee = await poolMaster.withdrawableAdminFees();
-    kncStake = await poolMaster.getLatestStake();
+    let adminFee = await poolMaster.withdrawableAdminFees();
+    let kncStake = await poolMaster.getLatestStake();
     Helper.assertGreater(adminFee.toString(), initialAdminFee.toString());
     Helper.assertGreater(kncStake.toString(), initialKncStake.toString());
     Helper.assertEqual((await ethers.provider.getBalance(poolMaster.address)).toString(), ONE.toString());
@@ -412,6 +411,36 @@ contract('PoolMaster', function () {
       userKncBalAfter.sub(userKncBalBefore).toString(),
       userTotalStakeAmount.mul(BPS.sub(burnFeeBps)).div(BPS).toString()
     );
-    Helper.assertGreater((await poolMaster.getProRataKnc()).toString, proRataKnc.toString());
+    Helper.assertGreater((await poolMaster.getProRataKnc()).toString(), proRataKnc.toString());
+  });
+
+  it('should prevent user from claiming entire pool rewards then minting it for himself', async () => {
+    // user stakes 10 KNC
+    let stakeAmount = new BN.from(10).mul(precisionUnits);
+    await newKnc.connect(admin).mint(user.address, stakeAmount);
+    await newKnc.connect(user).approve(poolMaster.address, MAX_UINT);
+    await poolMaster.connect(user).depositWithNewKnc(stakeAmount);
+    await poolMaster.connect(admin).addOperator(operator.address);
+
+    // user claims on behalf of poolMaster directly
+    await rewardsDistributor.connect(user).claim(1, 1, poolMaster.address, [newKnc.address], [50000], [ZERO_BYTES]);
+
+    // verify poolMaster has received KNC
+    Helper.assertEqual((await newKnc.balanceOf(poolMaster.address)).toString(), 50000);
+
+    // tries to mint 1 token to include claimed rewards as part of his stake
+    await newKnc.connect(admin).mint(user.address, stakeAmount);
+    await poolMaster.connect(user).depositWithNewKnc(stakeAmount);
+
+    // claimed KNC rewards should have remained in the pool
+    Helper.assertEqual((await newKnc.balanceOf(poolMaster.address)).toString(), 50000);
+
+    let proRataKnc = await poolMaster.getProRataKnc();
+
+    // stake claimed KNC rewards
+    await poolMaster.connect(operator).liquidateTokensToKnc([], []);
+
+    // check pro-rata KNC increased
+    Helper.assertGreater((await poolMaster.getProRataKnc()).toString(), proRataKnc.toString());
   });
 });

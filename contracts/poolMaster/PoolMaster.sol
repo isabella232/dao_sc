@@ -295,8 +295,7 @@ contract PoolMaster is PermissionAdmin, PermissionOperators, ReentrancyGuard, ER
    */
   function _deposit(uint256 tokenWei, address user) internal {
     uint256 balanceBefore = getLatestStake();
-    if (user != admin) _administerAdminFee(FeeTypes.MINT, tokenWei);
-    uint256 depositAmount = getAvailableNewKncBalanceTwei();
+    uint256 depositAmount = user == admin ? tokenWei : _administerAdminFee(FeeTypes.MINT, tokenWei);
     _stake(depositAmount);
 
     uint256 mintAmount = _calculateMintAmount(balanceBefore, depositAmount);
