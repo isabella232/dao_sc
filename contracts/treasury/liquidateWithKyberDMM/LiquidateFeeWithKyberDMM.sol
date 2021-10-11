@@ -67,6 +67,8 @@ contract LiquidateFeeWithKyberDMM is PermissionOperators, Withdrawable, Utils {
     address[] calldata _poolPath
   ) external onlyOperator {
     require(_tokenPath.length == _poolPath.length + 1, 'invalid lengths');
+    require(src == address(_tokenPath[0]), 'invalid src value');
+    require(dest == address(_tokenPath[_tokenPath.length - 1]), 'invalid dest token');
     tokenPath[src][dest] = _tokenPath;
     poolPath[src][dest] = _poolPath;
   }
