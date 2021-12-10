@@ -25,12 +25,12 @@ let lockerDuration;
 let fairLaunchConfigs = [];
 let outputFilename;
 
-task('deployLiquidityMining', 'deploy liquidity mining contracts')
+task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
   .addParam('input', 'The input file')
   .addParam('gasprice', 'The gas price (in gwei) for all transactions')
   .setAction(async (taskArgs, hre) => {
     const configPath = path.join(__dirname, `./${taskArgs.input}`);
-    const configParams = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const configParams = JSON.parse(fs.readFileSync(configPath, 'utf8')); 
     parseInput(configParams);
 
     const BN = ethers.BigNumber;
@@ -60,7 +60,7 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
         console.log(`FairLaunch ${i}: ${fairLaunchConfigs[i].address}`);
         continue;
       }
-      const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunch');
+      const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunchV2');
       let fairLaunch;
       fairLaunch = await KyberFairLaunch.deploy(
         deployerAddress, fairLaunchConfigs[i].rewardTokens, rewardLocker.address,
@@ -75,7 +75,7 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
 
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
       let contractData = fairLaunchConfigs[i];
-      const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunch');
+      const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunchV2');
       let fairLaunch = await KyberFairLaunch.attach(contractData.address);
 
       console.log(`Add FairLaunch to RewardLocker`);
@@ -96,21 +96,23 @@ task('deployLiquidityMining', 'deploy liquidity mining contracts')
       for (let j = 0; j < contractData.poolInfos.length; j++) {
         let poolData = contractData.poolInfos[j];
         let poolExist = await fairLaunch.poolExists(poolData.stakeToken);
-        let numBlocks = new BN.from(poolData.endBlock - poolData.startBlock);
-        let rewardPerBlocks = [];
+        let duration = new BN.from(poolData.endTime - poolData.startTime);
+        let rewardPerSeconds = [];
         for (let k = 0; k < poolData.totalRewards.length; k++) {
-          let reward = new BN.from(poolData.totalRewards[k]).mul(precision)
-          rewardPerBlocks.push(reward.div(numBlocks))
+          rewardPerSeconds.push(
+            new BN.from(poolData.totalRewards[k]).mul(precision).div(duration)
+          )
         }
         if (poolExist == false) {
           await fairLaunch.addPool(
             poolData.stakeToken,
-            poolData.startBlock,
-            poolData.endBlock,
-            rewardPerBlocks,
+            poolData.startTime,
+            poolData.endTime,
+            poolData.totalRewards,
+            j == 0,
             { gasPrice: gasPrice }
           );
-          console.log(`Add pool with stakeToken: ${poolData.stakeToken} startBlock: ${poolData.startBlock} endBlock: ${poolData.endBlock}`);
+          console.log(`Add pool with stakeToken: ${poolData.stakeToken} startTime: ${poolData.startTime} endTime: ${poolData.endTime}`);
         }
       }
     }
@@ -149,9 +151,9 @@ function parseInput(jsonInput) {
         let poolData = poolInfoData[j];
         data.poolInfos.push({
           stakeToken: poolData["stakeToken"],
-          startBlock: poolData["startBlock"],
-          endBlock: poolData["endBlock"],
-          totalRewards: poolData["totalRewards"]
+          startTime: poolData["startTime"],
+          endTime: poolData["endTime"],
+          totalRewards: poolData["totalRewards"] 
         });
       }
     }

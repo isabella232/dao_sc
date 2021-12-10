@@ -14,6 +14,7 @@ dotenv.config();
 import './deployment/katanaDeployment.js';
 import './deployment/deployInternalGovernance.js';
 import './deployment/liquidityMining/deployLiquidityMining.js';
+import './deployment/liquidityMining/deployLiquidityMiningV2.js';
 import './deployment/createBinaryProposal.js';
 import './deployment/simFullProposal.js';
 import './deployment/simProposalExecution.js';
