@@ -42,6 +42,8 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
     gasPrice = new BN.from(10**9 * taskArgs.gasprice);
     console.log(`Deploy gas price: ${gasPrice.toString(10)} (${taskArgs.gasprice} gweis)`);
 
+    let precision = new BN.from(10).pow(new BN.from(18));
+
     const KyberRewardLocker = await ethers.getContractFactory('KyberRewardLocker');
     let rewardLocker;
     if (lockerAddress == undefined) {
@@ -92,7 +94,7 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
       }
 
       console.log(`Add Pools to FairLaunch`);
-      let precision = new BN.from(10).pow(new BN.from(18));
+
       for (let j = 0; j < contractData.poolInfos.length; j++) {
         let poolData = contractData.poolInfos[j];
         let poolExist = await fairLaunch.poolExists(poolData.stakeToken);
