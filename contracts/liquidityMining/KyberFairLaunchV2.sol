@@ -86,19 +86,16 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     address indexed stakeToken,
     address indexed generatedToken,
     uint32 startTime,
-    uint32 endTime,
-    uint256[] rewardPerSeconds
+    uint32 endTime
   );
   event RenewPool(
     uint256 indexed pid,
     uint32 indexed startTime,
-    uint32 indexed endTime,
-    uint256[] rewardPerSeconds
+    uint32 indexed endTime
   );
   event UpdatePool(
     uint256 indexed pid,
-    uint32 indexed endTime,
-    uint256[] rewardPerSeconds
+    uint32 indexed endTime
   );
   event Deposit(
     address indexed user,
@@ -181,8 +178,8 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     GeneratedToken _generatedToken;
     if (_hasGeneratedToken) {
       _generatedToken = new GeneratedToken(
-        string(abi.encodePacked("KStake - ", GeneratedToken(_stakeToken).name())),
-        string(abi.encodePacked("stk", GeneratedToken(_stakeToken).symbol()))
+        string(abi.encodePacked('KStake - ', GeneratedToken(_stakeToken).name())),
+        string(abi.encodePacked('stk', GeneratedToken(_stakeToken).symbol()))
       );
       poolInfo[poolLength].generatedToken = _generatedToken;
     }
@@ -202,7 +199,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
     poolLength++;
     poolExists[_stakeToken] = true;
 
-    emit AddNewPool(_stakeToken, address(_generatedToken), _startTime, _endTime, _rewardPerSeconds);
+    emit AddNewPool(_stakeToken, address(_generatedToken), _startTime, _endTime);
   }
 
   /**
@@ -239,7 +236,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
       pool.poolRewardData[i].rewardPerSecond = _rewardPerSeconds[i];
     }
 
-    emit RenewPool(_pid, _startTime, _endTime, _rewardPerSeconds);
+    emit RenewPool(_pid, _startTime, _endTime);
   }
 
   /**
@@ -268,7 +265,7 @@ contract KyberFairLaunchV2 is IKyberFairLaunchV2, PermissionAdmin, ReentrancyGua
       pool.poolRewardData[i].rewardPerSecond = _rewardPerSeconds[i];
     }
 
-    emit UpdatePool(_pid, _endTime, _rewardPerSeconds);
+    emit UpdatePool(_pid, _endTime);
   }
 
   /**

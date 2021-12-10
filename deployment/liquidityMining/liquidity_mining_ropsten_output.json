@@ -1,24 +1,16 @@
 {
-  "RewardLocker": "0x3FF5751aC5f9980e7bCE08F9758cdDcBE0899C2b",
+  "RewardLocker": "0x00d5eca77c285554E1B5de6054B8d338F56CA97a",
   "LockDuration": 200000,
   "FairLaunches": [
     {
-      "address": "0x441B2CDA7771410b2E77798D2F491b8e07b6D62A",
+      "address": "0x868eA113Bf16184265157A69fc91efF31eC26590",
       "rewardTokens": [
         "0x8b4ddf9f13f382aff76d262f6c8c50e6d7961b94"
       ],
       "poolInfos": [
         {
-          "stakeToken": "0x35a8992222653dd888a7b22a536998418493b4ee",
-          "startTime": 1639094399,
-          "endTime": 1645574399,
-          "totalRewards": [
-            1000
-          ]
-        },
-        {
-          "stakeToken": "0x8b4ddf9f13f382aff76d262f6c8c50e6d7961b94",
-          "startTime": 1639094399,
+          "stakeToken": "0xa996f6c28AeB2E0b4395D3227e2E0b5C07650c55",
+          "startTime": 1639694399,
           "endTime": 1645574399,
           "totalRewards": [
             1000

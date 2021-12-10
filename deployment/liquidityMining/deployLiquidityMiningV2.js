@@ -91,6 +91,10 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
           contractData.rewardTokens[j], lockerDuration,
           { gasPrice: gasPrice }
         );
+        let MockToken = await ethers.getContractFactory('MockToken');
+        let token = await MockToken.attach(contractData.rewardTokens[j]);
+        let amount = precision.mul(new BN.from(3000));
+        await token.transfer(fairLaunch.address, amount, { gasPrice: gasPrice });
       }
 
       console.log(`Add Pools to FairLaunch`);
@@ -119,8 +123,8 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
       }
     }
 
-    console.log(`Verify reward locker at: ${rewardLocker.address}`);
-    await verifyContract(hre, rewardLocker.address, [deployerAddress]);
+    // console.log(`Verify reward locker at: ${rewardLocker.address}`);
+    // await verifyContract(hre, rewardLocker.address, [deployerAddress]);
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
       console.log(`Verify fairlaunch  at: ${fairLaunchConfigs[i].address}`);
       await verifyContract(
