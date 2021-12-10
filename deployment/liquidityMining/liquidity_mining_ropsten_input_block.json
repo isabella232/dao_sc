@@ -3,14 +3,15 @@
     "RewardLocker": "0x00d5eca77c285554E1B5de6054B8d338F56CA97a",
     "FairLaunchConfigs": [
         {
+            "address": "0x5B7151C44129116388CC443c93eAb68E9E05CEE1",
             "rewardTokens": [
                 "0x8b4ddf9f13f382aff76d262f6c8c50e6d7961b94"
             ],
             "poolInfo": [
                 {
                     "stakeToken": "0xa996f6c28AeB2E0b4395D3227e2E0b5C07650c55",
-                    "startTime": 1639694399,
-                    "endTime": 1645574399,
+                    "startBlock": 11590000,
+                    "endBlock": 12000000,
                     "totalRewards": [
                         1000
                     ]
@@ -18,5 +19,5 @@
             ]
         }
     ],
-    "outputFilename": "liquidity_mining_ropsten_output.json"
+    "outputFilename": "liquidity_mining_ropsten_output_block.json"
 }
