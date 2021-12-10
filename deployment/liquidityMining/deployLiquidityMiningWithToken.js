@@ -60,7 +60,7 @@ task('deployLiquidityMiningWithToken', 'deploy liquidity mining contracts')
         console.log(`FairLaunch ${i}: ${fairLaunchConfigs[i].address}`);
         continue;
       }
-      const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunch');
+      const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunchWithToken');
       let fairLaunch;
       fairLaunch = await KyberFairLaunch.deploy(
         deployerAddress, fairLaunchConfigs[i].rewardTokens, rewardLocker.address,
@@ -75,7 +75,7 @@ task('deployLiquidityMiningWithToken', 'deploy liquidity mining contracts')
 
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
       let contractData = fairLaunchConfigs[i];
-      const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunch');
+      const KyberFairLaunch = await ethers.getContractFactory('KyberFairLaunchWithToken');
       let fairLaunch = await KyberFairLaunch.attach(contractData.address);
 
       console.log(`Add FairLaunch to RewardLocker`);
