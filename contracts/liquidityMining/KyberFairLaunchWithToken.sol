@@ -521,8 +521,8 @@ contract KyberFairLaunchWithToken is IKyberFairLaunch, PermissionAdmin, Reentran
     pool.totalStake = pool.totalStake.sub(_amount);
 
     address stakeToken = pool.stakeToken;
-    IERC20Ext(stakeToken).safeTransfer(msg.sender, _amount);
     GeneratedToken(poolToGeneratedToken[stakeToken]).burn(msg.sender, _amount);
+    IERC20Ext(stakeToken).safeTransfer(msg.sender, _amount);
 
     emit Withdraw(msg.sender, _pid, block.number, _amount);
   }
