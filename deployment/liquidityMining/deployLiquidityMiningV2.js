@@ -55,7 +55,7 @@ task('deployLiquidityMiningV2', 'deploy liquidity mining contracts')
     }
     console.log(`RewardLocker address: ${rewardLocker.address}`);
     outputData["RewardLocker"] = rewardLocker.address;
-    outputData["LockDuration"] = lockerDuration;
+    outputData["LockerDuration"] = lockerDuration;
 
     for (let i = 0; i < fairLaunchConfigs.length; i++) {
       if (fairLaunchConfigs[i].address != undefined) {
@@ -143,7 +143,7 @@ function parseInput(jsonInput) {
   lockerAddress = jsonInput["RewardLocker"];
   lockerDuration = jsonInput["LockerDuration"];
   fairLaunchConfigs = [];
-  let configs = jsonInput["FairLaunchConfigs"];
+  let configs = jsonInput["FairLaunches"];
   if (configs == undefined) configs = [];
   for (let i = 0; i < configs.length; i++) {
     let data = {

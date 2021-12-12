@@ -13,6 +13,7 @@ contract GeneratedToken is ERC20 {
     require(msg.sender == deployer, 'unauthorized');
     _;
   }
+
   constructor (string memory name_, string memory symbol_) ERC20(name_, symbol_) {
     deployer = msg.sender;
   }

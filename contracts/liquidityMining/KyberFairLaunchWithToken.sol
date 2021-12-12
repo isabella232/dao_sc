@@ -8,7 +8,7 @@ import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
 import {SafeCast} from '@openzeppelin/contracts/utils/SafeCast.sol';
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 import {PermissionAdmin} from '@kyber.network/utils-sc/contracts/PermissionAdmin.sol';
-import {IKyberFairLaunch} from '../interfaces/liquidityMining/IKyberFairLaunch.sol';
+import {IKyberFairLaunchWithToken} from '../interfaces/liquidityMining/IKyberFairLaunchWithToken.sol';
 import {IKyberRewardLocker} from '../interfaces/liquidityMining/IKyberRewardLocker.sol';
 import {GeneratedToken} from './GeneratedToken.sol';
 
@@ -18,7 +18,7 @@ import {GeneratedToken} from './GeneratedToken.sol';
 /// Allow extend or renew a pool to continue/restart the LM program
 /// When harvesting, rewards will be transferred to a RewardLocker
 /// Support multiple reward tokens, reward tokens must be distinct and immutable
-contract KyberFairLaunchWithToken is IKyberFairLaunch, PermissionAdmin, ReentrancyGuard {
+contract KyberFairLaunchWithToken is IKyberFairLaunchWithToken, PermissionAdmin, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeCast for uint256;
   using SafeERC20 for IERC20Ext;
@@ -163,12 +163,16 @@ contract KyberFairLaunchWithToken is IKyberFairLaunch, PermissionAdmin, Reentran
    * @param _startBlock: block where the reward starts
    * @param _endBlock: block where the reward ends
    * @param _rewardPerBlocks: amount of reward token per block for the pool for each reward token
+   * @param _tokenName: name of the generated token
+   * @param _tokenSymbol: symbol of the generated token
    */
   function addPool(
     address _stakeToken,
     uint32 _startBlock,
     uint32 _endBlock,
-    uint256[] calldata _rewardPerBlocks
+    uint256[] calldata _rewardPerBlocks,
+    string memory _tokenName,
+    string memory _tokenSymbol
   ) external override onlyAdmin {
     require(!poolExists[_stakeToken], 'add: duplicated pool');
     require(_stakeToken != address(0), 'add: invalid stake token');
@@ -182,8 +186,7 @@ contract KyberFairLaunchWithToken is IKyberFairLaunch, PermissionAdmin, Reentran
     poolInfo[poolLength].lastRewardBlock = _startBlock;
 
     GeneratedToken _generatedToken = new GeneratedToken(
-      string(abi.encodePacked('KStake - ', GeneratedToken(_stakeToken).name())),
-      string(abi.encodePacked('stk', GeneratedToken(_stakeToken).symbol()))
+      _tokenName, _tokenSymbol
     );
     poolToGeneratedToken[_stakeToken] = _generatedToken;
 
