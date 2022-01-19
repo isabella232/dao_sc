@@ -2,47 +2,57 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-interface IKyberFairLaunch {
+interface IKyberFairLaunchV2 {
   /**
    * @dev Add a new lp to the pool. Can only be called by the admin.
    * @param _stakeToken: token to be staked to the pool
-   * @param _startBlock: block where the reward starts
-   * @param _endBlock: block where the reward ends
-   * @param _rewardPerBlocks: amount of reward token per block for the pool
+   * @param _startTime: time where the reward starts
+   * @param _endTime: time where the reward ends
+   * @param _vestingDuration: time vesting for token
+   * @param _rewardPerSeconds: amount of reward token per second for the pool
+   * @param _tokenName: name of the generated token
+   * @param _tokenSymbol: symbol of the generated token
    */
   function addPool(
     address _stakeToken,
-    uint32 _startBlock,
-    uint32 _endBlock,
-    uint256[] calldata _rewardPerBlocks
+    uint32 _startTime,
+    uint32 _endTime,
+    uint32 _vestingDuration,
+    uint256[] calldata _rewardPerSeconds,
+    string memory _tokenName,
+    string memory _tokenSymbol
   ) external;
 
   /**
    * @dev Renew a pool to start another liquidity mining program
    * @param _pid: id of the pool to renew, must be pool that has not started or already ended
-   * @param _startBlock: block where the reward starts
-   * @param _endBlock: block where the reward ends
-   * @param _rewardPerBlocks: amount of reward token per block for the pool
+   * @param _startTime: time where the reward starts
+   * @param _endTime: time where the reward ends
+   * @param _vestingDuration: time vesting for token
+   * @param _rewardPerSeconds: amount of reward token per second for the pool
    *   0 if we want to stop the pool from accumulating rewards
    */
   function renewPool(
     uint256 _pid,
-    uint32 _startBlock,
-    uint32 _endBlock,
-    uint256[] calldata _rewardPerBlocks
+    uint32 _startTime,
+    uint32 _endTime,
+    uint32 _vestingDuration,
+    uint256[] calldata _rewardPerSeconds
   ) external;
 
   /**
-   * @dev Update a pool, allow to change end block, reward per block
+   * @dev Update a pool, allow to change end time, reward per second
    * @param _pid: pool id to be renew
-   * @param _endBlock: block where the reward ends
-   * @param _rewardPerBlocks: amount of reward token per block for the pool
+   * @param _endTime: time where the reward ends
+   * @param _vestingDuration: time vesting for token
+   * @param _rewardPerSeconds: amount of reward token per second for the pool
    *   0 if we want to stop the pool from accumulating rewards
    */
   function updatePool(
     uint256 _pid,
-    uint32 _endBlock,
-    uint256[] calldata _rewardPerBlocks
+    uint32 _endTime,
+    uint32 _vestingDuration,
+    uint256[] calldata _rewardPerSeconds
   ) external;
 
   /**
@@ -107,10 +117,12 @@ interface IKyberFairLaunch {
     returns (
       uint256 totalStake,
       address stakeToken,
-      uint32 startBlock,
-      uint32 endBlock,
-      uint32 lastRewardBlock,
-      uint256[] memory rewardPerBlocks,
+      address generatedToken,
+      uint32 startTime,
+      uint32 endTime,
+      uint32 lastRewardSecond,
+      uint32 vestingDuration,
+      uint256[] memory rewardPerSeconds,
       uint256[] memory accRewardPerShares
     );
 

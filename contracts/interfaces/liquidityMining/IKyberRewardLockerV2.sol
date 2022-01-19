@@ -4,10 +4,10 @@ pragma abicoder v2;
 
 import {IERC20Ext} from '@kyber.network/utils-sc/contracts/IERC20Ext.sol';
 
-interface IKyberRewardLocker {
+interface IKyberRewardLockerV2 {
   struct VestingSchedule {
-    uint64 startBlock;
-    uint64 endBlock;
+    uint64 startTime;
+    uint64 endTime;
     uint128 quantity;
     uint128 vestedQuantity;
   }
@@ -15,8 +15,8 @@ interface IKyberRewardLocker {
   event VestingEntryCreated(
     IERC20Ext indexed token,
     address indexed beneficiary,
-    uint256 startBlock,
-    uint256 endBlock,
+    uint256 startTime,
+    uint256 endTime,
     uint256 quantity,
     uint256 index
   );
@@ -41,17 +41,19 @@ interface IKyberRewardLocker {
   function lock(
     IERC20Ext token,
     address account,
-    uint256 amount
+    uint256 amount,
+    uint32 vestingDuration
   ) external payable;
 
   /**
    * @dev queue a vesting schedule
    */
-  function lockWithStartBlock(
+  function lockWithStartTime(
     IERC20Ext token,
     address account,
     uint256 quantity,
-    uint256 startBlock
+    uint256 startTime,
+    uint32 vestingDuration
   ) external payable;
 
   /**
@@ -63,7 +65,7 @@ interface IKyberRewardLocker {
 
   /**
    * @dev claim multiple tokens for specific vesting schedule,
-   *      if schedule has not ended yet, claiming amounts are linear with vesting blocks
+   *      if schedule has not ended yet, claiming amounts are linear with vesting times
    */
   function vestScheduleForMultipleTokensAtIndices(
     IERC20Ext[] calldata tokens,
@@ -77,7 +79,7 @@ interface IKyberRewardLocker {
 
   /**
    * @dev claim token for specific vesting schedule,
-   * @dev if schedule has not ended yet, claiming amount is linear with vesting blocks
+   * @dev if schedule has not ended yet, claiming amount is linear with vesting times
    */
   function vestScheduleAtIndices(IERC20Ext token, uint256[] calldata indexes)
     external
