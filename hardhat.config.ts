@@ -23,10 +23,10 @@ import {accounts} from './test-wallets';
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
 
-    gasReporter: {
-      currency: 'USD',
-      gasPrice: 100,
-    },
+  gasReporter: {
+    currency: 'USD',
+    gasPrice: 100,
+  },
 
   networks: {
     develop: {
@@ -102,6 +102,12 @@ if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
 
   config.networks!.mainnet = {
     url: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000,
+  };
+
+  config.networks!.bscmain = {
+    url: `https://bsc-dataseed.binance.org/`,
     accounts: [PRIVATE_KEY],
     timeout: 20000,
   };
