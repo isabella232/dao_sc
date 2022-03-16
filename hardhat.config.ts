@@ -123,7 +123,15 @@ if (INFURA_API_KEY != '' && PRIVATE_KEY != '') {
     accounts: [PRIVATE_KEY],
     timeout: 20000,
   };
+
+  config.networks!.avax = {
+    url: `https://api.avax.network/ext/bc/C/rpc`,
+    accounts: [PRIVATE_KEY],
+    chainId: 43114,
+    timeout: 20000,
+  };
 }
+
 
 if (ETHERSCAN_KEY != '' || POLYGONSCAN_KEY != '') {
   config.etherscan = {
